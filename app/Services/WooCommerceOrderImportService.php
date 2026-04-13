@@ -202,11 +202,14 @@ class WooCommerceOrderImportService
                 $decoded = json_decode($businessDetails->pos_settings, true);
                 $posSettings = is_array($decoded) ? $decoded : [];
             }
+            // mapPurchaseSell throws PurchaseSellMismatch when it cannot allocate sell qty to
+            // purchase lines (FIFO/LIFO). That rolls back this whole transaction, undoing stock.
+            // Web orders are not created from POS purchase batches — force overselling for mapping only.
             $mapBusiness = [
                 'id' => $business->id,
                 'accounting_method' => $businessDetails->accounting_method,
                 'location_id' => $locationId,
-                'pos_settings' => $posSettings,
+                'pos_settings' => array_merge($posSettings, ['allow_overselling' => 1]),
             ];
             $sellTxn->load('sell_lines');
             $transactionUtil->mapPurchaseSell($mapBusiness, $sellTxn->sell_lines, 'purchase');
@@ -215,6 +218,12 @@ class WooCommerceOrderImportService
             $sellTxn->save();
 
             DB::commit();
+
+            Log::info('WooCommerce order imported to POS', [
+                'business_id' => $business->id,
+                'woocommerce_order_id' => $orderId,
+                'transaction_id' => $sellTxn->id,
+            ]);
 
             return ['status' => 'imported', 'order_id' => $orderId, 'transaction_id' => $sellTxn->id];
         } catch (PurchaseSellMismatch $e) {
