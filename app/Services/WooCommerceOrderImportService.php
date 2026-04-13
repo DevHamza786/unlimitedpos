@@ -14,6 +14,9 @@ use App\Utils\ContactUtil;
 use App\Utils\ProductUtil;
 use App\Utils\TransactionUtil;
 use Carbon\Carbon;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -31,7 +34,34 @@ class WooCommerceOrderImportService
             return ['status' => 'ignored', 'reason' => 'no_order_id'];
         }
 
-        if (Transaction::where('business_id', $business->id)->where('woocommerce_order_id', $orderId)->exists()) {
+        $lock = Cache::lock('woocommerce.import.'.$business->id.'.'.$orderId, 30);
+
+        try {
+            return $lock->block(15, fn () => $this->importOrderFromPayloadLocked($business, $order, $orderId));
+        } catch (LockTimeoutException $e) {
+            Log::warning('WooCommerce import: lock wait timeout', [
+                'business_id' => $business->id,
+                'woocommerce_order_id' => $orderId,
+            ]);
+
+            return ['status' => 'error', 'reason' => 'lock_timeout'];
+        }
+    }
+
+    /**
+     * @return array{status: string, order_id?: int, transaction_id?: int, reason?: string, message?: string}
+     */
+    private function importOrderFromPayloadLocked(Business $business, array $order, int $orderId): array
+    {
+        if (Transaction::where('business_id', $business->id)
+            ->where('type', 'sell')
+            ->where('woocommerce_order_id', $orderId)
+            ->exists()) {
+            Log::info('WooCommerce order import skipped (already imported)', [
+                'business_id' => $business->id,
+                'woocommerce_order_id' => $orderId,
+            ]);
+
             return ['status' => 'duplicate', 'order_id' => $orderId];
         }
 
@@ -171,6 +201,10 @@ class WooCommerceOrderImportService
             ];
 
             $sellTxn = $transactionUtil->createSellTransaction($business->id, $sellInput, $invoiceTotal, $ownerId, true);
+
+            $sellTxn->woocommerce_order_id = $orderId;
+            $sellTxn->save();
+
             $transactionUtil->createOrUpdateSellLines($sellTxn, $sellProductsInput, $locationId, false, null, [], true);
 
             foreach ($sellProductsInput as $line) {
@@ -214,9 +248,6 @@ class WooCommerceOrderImportService
             $sellTxn->load('sell_lines');
             $transactionUtil->mapPurchaseSell($mapBusiness, $sellTxn->sell_lines, 'purchase');
 
-            $sellTxn->woocommerce_order_id = $orderId;
-            $sellTxn->save();
-
             DB::commit();
 
             Log::info('WooCommerce order imported to POS', [
@@ -235,10 +266,35 @@ class WooCommerceOrderImportService
             ]);
 
             return ['status' => 'error', 'reason' => 'purchase_sell_mismatch', 'message' => $e->getMessage()];
+        } catch (QueryException $e) {
+            DB::rollBack();
+            if ($this->isMysqlDuplicateWooCommerceOrder($e)) {
+                Log::info('WooCommerce order import skipped (duplicate key)', [
+                    'business_id' => $business->id,
+                    'woocommerce_order_id' => $orderId,
+                ]);
+
+                return ['status' => 'duplicate', 'order_id' => $orderId];
+            }
+
+            throw $e;
         } catch (\Throwable $e) {
             DB::rollBack();
             throw $e;
         }
+    }
+
+    private function isMysqlDuplicateWooCommerceOrder(QueryException $e): bool
+    {
+        $code = $e->getCode();
+        if ($code !== '23000' && $code !== 23000) {
+            return false;
+        }
+
+        $msg = $e->getMessage();
+
+        return str_contains($msg, 'transactions_business_woocommerce_order_uid')
+            || str_contains($msg, 'Duplicate entry');
     }
 
     /**
