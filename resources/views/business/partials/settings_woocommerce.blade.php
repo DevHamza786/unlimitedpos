@@ -99,6 +99,14 @@
                 {!! Form::label('woocommerce_webhook_secret', __('business.woocommerce_webhook_secret') . ':') !!}
                 {!! Form::password('woocommerce_webhook_secret', ['class' => 'form-control', 'placeholder' => __('business.woocommerce_webhook_secret_placeholder'), 'autocomplete' => 'off']); !!}
                 <p class="help-block">@lang('business.woocommerce_webhook_secret_help')</p>
+                <p class="help-block text-warning">@lang('business.woocommerce_webhook_secret_401_help')</p>
+                <div class="checkbox">
+                    <label>
+                        {!! Form::hidden('woocommerce_webhook_secret_remove', 0) !!}
+                        {!! Form::checkbox('woocommerce_webhook_secret_remove', 1, false, ['class' => 'input-icheck']); !!}
+                        @lang('business.woocommerce_webhook_secret_remove')
+                    </label>
+                </div>
             </div>
         </div>
         @endif

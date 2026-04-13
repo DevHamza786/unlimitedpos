@@ -507,7 +507,9 @@ class BusinessController extends Controller
                 $business->woocommerce_default_location_id = null;
             }
 
-            if ($request->filled('woocommerce_webhook_secret')) {
+            if ($request->boolean('woocommerce_webhook_secret_remove')) {
+                $business->woocommerce_webhook_secret = null;
+            } elseif ($request->filled('woocommerce_webhook_secret')) {
                 $business->woocommerce_webhook_secret = trim((string) $request->input('woocommerce_webhook_secret'));
             }
 

@@ -27,8 +27,20 @@ class WooCommerceWebhookController extends Controller
         }
 
         $secret = $business->woocommerce_webhook_secret;
-        if (! empty($secret) && ! $this->signatureValid($request, (string) $secret)) {
-            abort(401, 'Invalid webhook signature');
+        if (! empty($secret)) {
+            $header = (string) $request->header('X-WC-Webhook-Signature', '');
+            if ($header === '') {
+                Log::warning('WooCommerce webhook: missing X-WC-Webhook-Signature but POS has a secret configured', [
+                    'business_id' => $business->id,
+                ]);
+                abort(401, 'Missing X-WC-Webhook-Signature');
+            }
+            if (! $this->signatureValid($request, (string) $secret)) {
+                Log::warning('WooCommerce webhook: signature mismatch (same secret as in WooCommerce → Business settings, or clear POS secret)', [
+                    'business_id' => $business->id,
+                ]);
+                abort(401, 'Invalid webhook signature');
+            }
         }
 
         $order = $request->json()->all();
@@ -57,8 +69,11 @@ class WooCommerceWebhookController extends Controller
             return false;
         }
 
+        // Match WooCommerce: wp_specialchars_decode( $secret, ENT_QUOTES ) as HMAC key.
+        $key = htmlspecialchars_decode($secret, ENT_QUOTES);
+
         $payload = $request->getContent();
-        $expected = base64_encode(hash_hmac('sha256', $payload, $secret, true));
+        $expected = base64_encode(hash_hmac('sha256', $payload, $key, true));
 
         return hash_equals($expected, $header);
     }
