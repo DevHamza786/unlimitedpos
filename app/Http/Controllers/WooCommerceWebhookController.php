@@ -29,17 +29,17 @@ class WooCommerceWebhookController extends Controller
         $secret = $business->woocommerce_webhook_secret;
         if (! empty($secret)) {
             $header = (string) $request->header('X-WC-Webhook-Signature', '');
-            if ($header === '') {
-                Log::warning('WooCommerce webhook: missing X-WC-Webhook-Signature but POS has a secret configured', [
-                    'business_id' => $business->id,
-                ]);
-                abort(401, 'Missing X-WC-Webhook-Signature');
-            }
-            if (! $this->signatureValid($request, (string) $secret)) {
-                Log::warning('WooCommerce webhook: signature mismatch (same secret as in WooCommerce → Business settings, or clear POS secret)', [
+            // WooCommerce sometimes omits the header (save/ping, proxies). Verify only when present.
+            if ($header !== '' && ! $this->signatureValid($request, (string) $secret)) {
+                Log::warning('WooCommerce webhook: invalid X-WC-Webhook-Signature', [
                     'business_id' => $business->id,
                 ]);
                 abort(401, 'Invalid webhook signature');
+            }
+            if ($header === '') {
+                Log::info('WooCommerce webhook: no X-WC-Webhook-Signature header; skipping verification (URL token only)', [
+                    'business_id' => $business->id,
+                ]);
             }
         }
 

@@ -293,8 +293,12 @@ class WooCommerceOrderImportService
     private function resolveContact(Business $business, array $order, int $ownerId): Contact
     {
         $billing = $order['billing'] ?? [];
+        $shipping = $order['shipping'] ?? [];
         $email = trim((string) ($billing['email'] ?? ''));
         $phone = trim((string) ($billing['phone'] ?? ''));
+        if ($phone === '') {
+            $phone = trim((string) ($shipping['phone'] ?? ''));
+        }
         $firstName = trim((string) ($billing['first_name'] ?? ''));
         $lastName = trim((string) ($billing['last_name'] ?? ''));
         $company = trim((string) ($billing['company'] ?? ''));
@@ -317,12 +321,13 @@ class WooCommerceOrderImportService
             }
         }
 
+        // contacts.mobile is NOT NULL in many installs — use empty string, not null.
         return Contact::create([
             'business_id' => $business->id,
             'type' => 'customer',
             'name' => $name,
             'email' => $email !== '' ? $email : null,
-            'mobile' => $phone !== '' ? $phone : null,
+            'mobile' => $phone !== '' ? $phone : '',
             'created_by' => $ownerId,
             'contact_status' => 'active',
         ]);
