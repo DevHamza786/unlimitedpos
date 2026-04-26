@@ -388,4 +388,9 @@ class Contact extends Authenticatable
     {
         return $this->belongsToMany(\App\User::class, 'user_contact_access');
     }
+
+    public function vouchers()
+    {
+        return $this->hasMany(\App\Voucher::class, 'contact_id');
+    }
 }

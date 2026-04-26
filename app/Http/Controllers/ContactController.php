@@ -109,6 +109,9 @@ class ContactController extends Controller
         $business_id = request()->session()->get('user.business_id');
 
         $contact = $this->contactUtil->getContactQuery($business_id, 'supplier');
+        $contact->addSelect([
+            DB::raw("SUM(IF(t.type = 'sell' AND t.status = 'final', final_total, 0)) as total_sell"),
+        ]);
 
         if (request()->has('has_purchase_due')) {
             $contact->havingRaw('(total_purchase - purchase_paid) > 0');
@@ -144,6 +147,10 @@ class ContactController extends Controller
             ->addColumn(
                 'return_due',
                 '<span class="return_due" data-orig-value="{{$total_purchase_return - $purchase_return_paid}}" data-highlight=false>@format_currency($total_purchase_return - $purchase_return_paid)'
+            )
+            ->addColumn(
+                'total_sell',
+                '<span class="total_sell" data-orig-value="{{$total_sell}}" data-highlight=false>@format_currency($total_sell)</span>'
             )
             ->addColumn(
                 'action',
@@ -274,7 +281,7 @@ class ContactController extends Controller
                     ->orWhereRaw("CONCAT(COALESCE(address_line_1, ''), ', ', COALESCE(address_line_2, ''), ', ', COALESCE(city, ''), ', ', COALESCE(state, ''), ', ', COALESCE(country, '') ) like ?", ["%{$keyword}%"]);
                 });
             })
-            ->rawColumns(['action', 'opening_balance', 'pay_term', 'due', 'return_due', 'name', 'balance'])
+            ->rawColumns(['action', 'opening_balance', 'pay_term', 'due', 'return_due', 'total_sell', 'name', 'balance'])
             ->make(true);
     }
 
@@ -294,6 +301,9 @@ class ContactController extends Controller
         $is_admin = $this->contactUtil->is_admin(auth()->user());
 
         $query = $this->contactUtil->getContactQuery($business_id, 'customer');
+        $query->addSelect([
+            DB::raw("(SELECT COUNT(*) FROM vouchers v WHERE v.business_id = contacts.business_id AND v.contact_id = contacts.id AND v.status = 'active' AND (v.expires_at IS NULL OR DATE(v.expires_at) >= CURDATE())) as active_vouchers_count"),
+        ]);
 
         if (request()->has('has_sell_due')) {
             $query->havingRaw('(total_invoice - invoice_received) > 0');
@@ -363,6 +373,15 @@ class ContactController extends Controller
 
         $contacts = Datatables::of($query)
             ->addColumn('address', '{{implode(", ", array_filter([$address_line_1, $address_line_2, $city, $state, $country, $zip_code]))}}')
+            ->addColumn('active_vouchers', function ($row) {
+                $count = (int) ($row->active_vouchers_count ?? 0);
+                $html = '<span class="label label-info">'.$count.'</span>';
+                if ($count > 0) {
+                    $html .= ' <a href="#" class="btn-modal" data-container=".contact_modal" data-href="'.action([\App\Http\Controllers\VoucherController::class, 'listModal'], [$row->id]).'">'.__('lang_v1.vouchers').'</a>';
+                }
+
+                return $html;
+            })
             ->addColumn(
                 'due',
                 '<span class="contact_due" data-orig-value="{{$total_invoice - $invoice_received - $total_ledger_discount}}" data-highlight=true>@format_currency($total_invoice - $invoice_received - $total_ledger_discount)</span>'
@@ -394,6 +413,12 @@ class ContactController extends Controller
                     }
                     if (auth()->user()->can('customer.update')) {
                         $html .= '<li><a href="'.action([\App\Http\Controllers\ContactController::class, 'edit'], [$row->id]).'" class="edit_contact_button"><i class="glyphicon glyphicon-edit"></i>'.__('messages.edit').'</a></li>';
+                    }
+                    if (auth()->user()->can('customer.update')) {
+                        $html .= '<li><a href="#" class="btn-modal" data-container=".contact_modal" data-href="'.action([\App\Http\Controllers\VoucherController::class, 'issueModal'], [$row->id]).'"><i class="fas fa-ticket-alt" aria-hidden="true"></i>'.__('lang_v1.voucher_issued').'</a></li>';
+                    }
+                    if (auth()->user()->can('customer.view') || auth()->user()->can('customer.view_own')) {
+                        $html .= '<li><a href="#" class="btn-modal" data-container=".contact_modal" data-href="'.action([\App\Http\Controllers\VoucherController::class, 'listModal'], [$row->id]).'"><i class="fas fa-list" aria-hidden="true"></i>'.__('lang_v1.vouchers').'</a></li>';
                     }
                     if (! $row->is_default && auth()->user()->can('customer.delete')) {
                         $html .= '<li><a href="'.action([\App\Http\Controllers\ContactController::class, 'destroy'], [$row->id]).'" class="delete_contact_button"><i class="glyphicon glyphicon-trash"></i>'.__('messages.delete').'</a></li>';
@@ -522,7 +547,7 @@ class ContactController extends Controller
             $contacts->removeColumn('total_rp');
         }
 
-        return $contacts->rawColumns(['action', 'opening_balance', 'credit_limit', 'pay_term', 'due', 'return_due', 'name', 'balance'])
+        return $contacts->rawColumns(['action', 'opening_balance', 'credit_limit', 'pay_term', 'active_vouchers', 'due', 'return_due', 'name', 'balance'])
                         ->make(true);
     }
 

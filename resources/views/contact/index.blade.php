@@ -23,14 +23,14 @@
         <div class="col-md-3">
             <div class="form-group">
                 <label>
-                    {!! Form::checkbox('has_sell_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_due']); !!} <strong>@lang('lang_v1.sell_due')</strong>
+                    {!! Form::checkbox('has_sell_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_due']) !!} <strong>@lang('lang_v1.sell_due')</strong>
                 </label>
             </div>
         </div>
         <div class="col-md-3">
             <div class="form-group">
                 <label>
-                    {!! Form::checkbox('has_sell_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_return']); !!} <strong>@lang('lang_v1.sell_return')</strong>
+                    {!! Form::checkbox('has_sell_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_sell_return']) !!} <strong>@lang('lang_v1.sell_return')</strong>
                 </label>
             </div>
         </div>
@@ -38,14 +38,14 @@
         <div class="col-md-3">
             <div class="form-group">
                 <label>
-                    {!! Form::checkbox('has_purchase_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_due']); !!} <strong>@lang('report.purchase_due')</strong>
+                    {!! Form::checkbox('has_purchase_due', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_due']) !!} <strong>@lang('report.purchase_due')</strong>
                 </label>
             </div>
         </div>
         <div class="col-md-3">
             <div class="form-group">
                 <label>
-                    {!! Form::checkbox('has_purchase_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_return']); !!} <strong>@lang('lang_v1.purchase_return')</strong>
+                    {!! Form::checkbox('has_purchase_return', 1, false, ['class' => 'input-icheck', 'id' => 'has_purchase_return']) !!} <strong>@lang('lang_v1.purchase_return')</strong>
                 </label>
             </div>
         </div>
@@ -53,14 +53,14 @@
     <div class="col-md-3">
         <div class="form-group">
             <label>
-                {!! Form::checkbox('has_advance_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_advance_balance']); !!} <strong>@lang('lang_v1.advance_balance')</strong>
+                {!! Form::checkbox('has_advance_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_advance_balance']) !!} <strong>@lang('lang_v1.advance_balance')</strong>
             </label>
         </div>
     </div>
     <div class="col-md-3">
         <div class="form-group">
             <label>
-                {!! Form::checkbox('has_opening_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_opening_balance']); !!} <strong>@lang('lang_v1.opening_balance')</strong>
+                {!! Form::checkbox('has_opening_balance', 1, false, ['class' => 'input-icheck', 'id' => 'has_opening_balance']) !!} <strong>@lang('lang_v1.opening_balance')</strong>
             </label>
         </div>
     </div>
@@ -68,14 +68,14 @@
         <div class="col-md-3">
             <div class="form-group">
                 <label for="has_no_sell_from">@lang('lang_v1.has_no_sell_from'):</label>
-                {!! Form::select('has_no_sell_from', ['one_month' => __('lang_v1.one_month'), 'three_months' => __('lang_v1.three_months'), 'six_months' => __('lang_v1.six_months'), 'one_year' => __('lang_v1.one_year')], null, ['class' => 'form-control', 'id' => 'has_no_sell_from', 'placeholder' => __('messages.please_select')]); !!}
+                {!! Form::select('has_no_sell_from', ['one_month' => __('lang_v1.one_month'), 'three_months' => __('lang_v1.three_months'), 'six_months' => __('lang_v1.six_months'), 'one_year' => __('lang_v1.one_year')], null, ['class' => 'form-control', 'id' => 'has_no_sell_from', 'placeholder' => __('messages.please_select')]) !!}
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="form-group">
                 <label for="cg_filter">@lang('lang_v1.customer_group'):</label>
-                {!! Form::select('cg_filter', $customer_groups, null, ['class' => 'form-control', 'id' => 'cg_filter']); !!}
+                {!! Form::select('cg_filter', $customer_groups, null, ['class' => 'form-control', 'id' => 'cg_filter']) !!}
             </div>
         </div>
     @endif
@@ -84,7 +84,7 @@
     <div class="col-md-3">
         <div class="form-group">
             {!! Form::label('assigned_to',  __('lang_v1.assigned_to') . ':') !!}
-            {!! Form::select('assigned_to', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%']); !!}
+            {!! Form::select('assigned_to', $users, null, ['class' => 'form-control select2', 'style' => 'width:100%']) !!}
         </div>
     </div>
     @endif
@@ -92,7 +92,7 @@
     <div class="col-md-3">
         <div class="form-group">
             <label for="status_filter">@lang('sale.status'):</label>
-            {!! Form::select('status_filter', ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')], null, ['class' => 'form-control', 'id' => 'status_filter', 'placeholder' => __('lang_v1.none')]); !!}
+            {!! Form::select('status_filter', ['active' => __('business.is_active'), 'inactive' => __('lang_v1.inactive')], null, ['class' => 'form-control', 'id' => 'status_filter', 'placeholder' => __('lang_v1.none')]) !!}
         </div>
     </div>
     @endcomponent
@@ -127,6 +127,7 @@
                             <th>@lang('contact.mobile')</th>
                             <th>@lang('contact.total_purchase_due')</th>
                             <th>@lang('lang_v1.total_purchase_return_due')</th>
+                            <th>@lang('report.total_sell')</th>
                         @elseif( $type == 'customer')
                             <th>@lang('business.business_name')</th>
                             <th>@lang('user.name')</th>
@@ -143,79 +144,52 @@
                             <th>@lang('lang_v1.customer_group')</th>
                             <th>@lang('business.address')</th>
                             <th>@lang('contact.mobile')</th>
+                            <th>@lang('lang_v1.vouchers')</th>
                             <th>@lang('contact.total_sale_due')</th>
                             <th>@lang('lang_v1.total_sell_return_due')</th>
                         @endif
-                        @php
-                            $custom_labels = json_decode(session('business.custom_labels'), true);
-                        @endphp
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_1'] ?? __('lang_v1.contact_custom_field1') }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_2'] ?? __('lang_v1.contact_custom_field2') }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_3'] ?? __('lang_v1.contact_custom_field3') }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_4'] ?? __('lang_v1.contact_custom_field4') }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_5'] ?? __('lang_v1.custom_field', ['number' => 5]) }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_6'] ?? __('lang_v1.custom_field', ['number' => 6]) }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_7'] ?? __('lang_v1.custom_field', ['number' => 7]) }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_8'] ?? __('lang_v1.custom_field', ['number' => 8]) }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_9'] ?? __('lang_v1.custom_field', ['number' => 9]) }}
-                        </th>
-                        <th>
-                            {{ $custom_labels['contact']['custom_field_10'] ?? __('lang_v1.custom_field', ['number' => 10]) }}
-                        </th>
                     </tr>
                 </thead>
                 <tfoot>
-                    <tr class="bg-gray font-17 text-center footer-total">
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td
-                            @if($type == 'supplier')
-                                colspan="6"
-                            @elseif( $type == 'customer')
-                                @if($reward_enabled)
-                                    colspan="9"
-                                @else
-                                    colspan="8"
-                                @endif
-                            @endif>
+                    @if($type == 'supplier')
+                        <tr class="bg-gray font-17 text-center footer-total">
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td colspan="6">
                                 <strong>
                                     @lang('sale.total'):
                                 </strong>
-                        </td>
-                        <td class="footer_contact_due"></td>
-                        <td class="footer_contact_return_due"></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
+                            </td>
+                            <td class="footer_contact_due"></td>
+                            <td class="footer_contact_return_due"></td>
+                            <td></td>
+                        </tr>
+                    @elseif($type == 'customer')
+                        <tr class="bg-gray font-17 text-center footer-total">
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td
+                                @if($reward_enabled)
+                                    colspan="10"
+                                @else
+                                    colspan="9"
+                                @endif>
+                                    <strong>
+                                        @lang('sale.total'):
+                                    </strong>
+                            </td>
+                            <td class="footer_contact_due"></td>
+                            <td class="footer_contact_return_due"></td>
+                        </tr>
+                    @endif
                 </tfoot>
             </table>
         @endif

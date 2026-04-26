@@ -388,16 +388,7 @@ $(document).ready(function() {
             { data: 'mobile', name: 'mobile' },
             { data: 'due', searchable: false, orderable: false },
             { data: 'return_due', searchable: false, orderable: false },
-            { data: 'custom_field1', name: 'custom_field1'},
-            { data: 'custom_field2', name: 'custom_field2'},
-            { data: 'custom_field3', name: 'custom_field3'},
-            { data: 'custom_field4', name: 'custom_field4'},
-            { data: 'custom_field5', name: 'custom_field5'},
-            { data: 'custom_field6', name: 'custom_field6'},
-            { data: 'custom_field7', name: 'custom_field7'},
-            { data: 'custom_field8', name: 'custom_field8'},
-            { data: 'custom_field9', name: 'custom_field9'},
-            { data: 'custom_field10', name: 'custom_field10'},
+            { data: 'total_sell', name: 'total_sell', searchable: false },
         ];
     } else if (contact_table_type == 'customer') {
         var columns = [
@@ -420,18 +411,9 @@ $(document).ready(function() {
         Array.prototype.push.apply(columns, [{ data: 'customer_group', name: 'cg.name' },
             { data: 'address', name: 'address', orderable: false },
             { data: 'mobile', name: 'mobile' },
+            { data: 'active_vouchers', searchable: false, orderable: false },
             { data: 'due', searchable: false, orderable: false },
             { data: 'return_due', searchable: false, orderable: false },
-            { data: 'custom_field1', name: 'custom_field1'},
-            { data: 'custom_field2', name: 'custom_field2'},
-            { data: 'custom_field3', name: 'custom_field3'},
-            { data: 'custom_field4', name: 'custom_field4'},
-            { data: 'custom_field5', name: 'custom_field5'},
-            { data: 'custom_field6', name: 'custom_field6'},
-            { data: 'custom_field7', name: 'custom_field7'},
-            { data: 'custom_field8', name: 'custom_field8'},
-            { data: 'custom_field9', name: 'custom_field9'},
-            { data: 'custom_field10', name: 'custom_field10'},
             ]);
     }
     
@@ -657,6 +639,80 @@ $(document).ready(function() {
             });
 
             $('#contact_add_form').trigger('contactFormvalidationAdded');
+    });
+
+    $(document).on('submit', 'form#issue_voucher_form', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var data = form.serialize();
+
+        $.ajax({
+            method: 'POST',
+            url: form.attr('action'),
+            dataType: 'json',
+            data: data,
+            beforeSend: function(xhr) {
+                __disable_submit_button(form.find('button[type="submit"]'));
+            },
+            success: function(result) {
+                if (result.success == true) {
+                    $('.contact_modal').modal('hide');
+                    toastr.success(result.msg);
+                    if (typeof contact_table !== 'undefined') {
+                        contact_table.ajax.reload();
+                    }
+                } else {
+                    toastr.error(result.msg);
+                }
+            },
+        });
+    });
+
+    $(document).on('click', '.resend_voucher_email', function(e) {
+        e.preventDefault();
+        var href = $(this).data('href');
+        $.ajax({
+            method: 'POST',
+            url: href,
+            dataType: 'json',
+            success: function(result) {
+                if (result.success == true) {
+                    toastr.success(result.msg);
+                } else {
+                    toastr.error(result.msg);
+                }
+            },
+        });
+    });
+
+    $(document).on('click', '.cancel_voucher', function(e) {
+        e.preventDefault();
+        var href = $(this).data('href');
+        swal({
+            title: LANG.sure,
+            icon: 'warning',
+            buttons: true,
+            dangerMode: true,
+        }).then(willDelete => {
+            if (willDelete) {
+                $.ajax({
+                    method: 'POST',
+                    url: href,
+                    dataType: 'json',
+                    success: function(result) {
+                        if (result.success == true) {
+                            toastr.success(result.msg);
+                            $('.contact_modal').modal('hide');
+                            if (typeof contact_table !== 'undefined') {
+                                contact_table.ajax.reload();
+                            }
+                        } else {
+                            toastr.error(result.msg);
+                        }
+                    },
+                });
+            }
+        });
     });
 
     $(document).on('click', '.edit_contact_button', function(e) {

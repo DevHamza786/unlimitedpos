@@ -88,6 +88,14 @@ class NotificationTemplate extends Model
 
                 ],
             ],
+            'voucher_issued' => [
+                'name' => __('lang_v1.voucher_issued'),
+                'extra_tags' => [
+                    ['{business_name}', '{business_logo}'],
+                    ['{contact_name}'],
+                    ['{voucher_code}', '{voucher_discount_percent}', '{voucher_expiry}', '{voucher_note}'],
+                ],
+            ],
         ];
     }
 
@@ -315,6 +323,24 @@ class NotificationTemplate extends Model
                     <p>{business_logo}</p>',
                 'sms_body' => 'We have a new purchase order with reference number {order_ref_number}. {business_name}',
                 'subject' => 'New Purchase Order, from {business_name}',
+                'auto_send' => '0',
+            ],
+            [
+                'business_id' => $business_id,
+                'template_for' => 'voucher_issued',
+                'email_body' => '<p>Dear {contact_name},</p>
+
+                    <p>Here is your voucher code: <strong>{voucher_code}</strong></p>
+
+                    <p>Discount: {voucher_discount_percent}%</p>
+
+                    <p>Expiry: {voucher_expiry}</p>
+
+                    <p>{voucher_note}</p>
+
+                    <p>{business_logo}</p>',
+                'sms_body' => 'Dear {contact_name}, your voucher code is {voucher_code} ({voucher_discount_percent}% off). Expiry: {voucher_expiry}. {business_name}',
+                'subject' => 'Your voucher from {business_name}',
                 'auto_send' => '0',
             ],
         ];

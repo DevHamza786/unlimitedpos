@@ -97,6 +97,20 @@
 				</td>
 				@endif
 			</tr>
+			<tr>
+				<td colspan="2">
+					<div class="row">
+						<div class="col-sm-4">
+							<b>@lang('lang_v1.voucher_code'):</b>
+						</div>
+						<div class="col-sm-8">
+							<input type="text" class="form-control input-sm" name="voucher_code" id="voucher_code"
+								placeholder="@lang('lang_v1.voucher_code')" value="">
+							<p class="help-block">@lang('sale.discount') @lang('lang_v1.calculated_on') @lang('sale.subtotal') + @lang('sale.tax')</p>
+						</div>
+					</div>
+				</td>
+			</tr>
 		</table>
 	</div>
 </div>

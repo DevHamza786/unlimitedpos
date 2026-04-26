@@ -51,6 +51,7 @@ use App\Utils\ContactUtil;
 use App\Utils\ModuleUtil;
 use App\Utils\NotificationUtil;
 use App\Utils\ProductUtil;
+use App\Utils\VoucherUtil;
 use App\Utils\TransactionUtil;
 use App\Variation;
 use App\Warranty;
@@ -82,6 +83,7 @@ class SellPosController extends Controller
     protected $moduleUtil;
 
     protected $notificationUtil;
+    protected $voucherUtil;
 
     /**
      * Constructor
@@ -96,7 +98,8 @@ class SellPosController extends Controller
         TransactionUtil $transactionUtil,
         CashRegisterUtil $cashRegisterUtil,
         ModuleUtil $moduleUtil,
-        NotificationUtil $notificationUtil
+        NotificationUtil $notificationUtil,
+        VoucherUtil $voucherUtil
     ) {
         $this->contactUtil = $contactUtil;
         $this->productUtil = $productUtil;
@@ -105,6 +108,7 @@ class SellPosController extends Controller
         $this->cashRegisterUtil = $cashRegisterUtil;
         $this->moduleUtil = $moduleUtil;
         $this->notificationUtil = $notificationUtil;
+        $this->voucherUtil = $voucherUtil;
 
         $this->dummyPaymentLine = ['method' => 'cash', 'amount' => 0, 'note' => '', 'card_transaction_number' => '', 'card_number' => '', 'card_type' => '', 'card_holder_name' => '', 'card_month' => '', 'card_year' => '', 'card_security' => '', 'cheque_number' => '', 'bank_account_number' => '',
             'is_return' => 0, 'transaction_no' => '', ];
@@ -369,6 +373,25 @@ class SellPosController extends Controller
 
                 $user_id = $request->session()->get('user.id');
 
+                $voucher = null;
+                if (! empty($input['voucher_code']) && ! empty($input['contact_id'])) {
+                    $voucher_result = $this->voucherUtil->calculateVoucherDiscountAmount(
+                        $business_id,
+                        (int) $input['contact_id'],
+                        trim($input['voucher_code']),
+                        $input['products'],
+                        $input['tax_rate_id']
+                    );
+
+                    if (empty($voucher_result['success'])) {
+                        return ['success' => 0, 'msg' => $voucher_result['msg'] ?? __('messages.something_went_wrong')];
+                    }
+
+                    $voucher = $voucher_result['voucher'];
+                    $input['discount_type'] = 'fixed';
+                    $input['discount_amount'] = $voucher_result['discount_amount'];
+                }
+
                 $discount = ['discount_type' => $input['discount_type'],
                     'discount_amount' => $input['discount_amount'],
                 ];
@@ -592,6 +615,26 @@ class SellPosController extends Controller
                 Media::uploadMedia($business_id, $transaction, $request, 'documents');
 
                 $this->transactionUtil->activityLog($transaction, 'added');
+
+                if (! empty($voucher) && $input['status'] == 'final' && empty($transaction->is_suspend)) {
+                    $voucher->status = 'redeemed';
+                    $voucher->redeemed_at = now();
+                    $voucher->redeemed_transaction_id = $transaction->id;
+                    $voucher->save();
+
+                    \App\VoucherRedemption::create([
+                        'voucher_id' => $voucher->id,
+                        'business_id' => $business_id,
+                        'contact_id' => $transaction->contact_id,
+                        'transaction_id' => $transaction->id,
+                        'discount_amount' => (float) ($invoice_total['discount'] ?? 0),
+                        'redeemed_at' => now(),
+                        'meta_json' => [
+                            'voucher_code' => $voucher->code,
+                            'discount_percent' => (float) $voucher->discount_percent,
+                        ],
+                    ]);
+                }
 
                 DB::commit();
 
@@ -1165,6 +1208,25 @@ class SellPosController extends Controller
                 $user_id = $request->session()->get('user.id');
                 $commsn_agnt_setting = $request->session()->get('business.sales_cmsn_agnt');
 
+                $voucher = null;
+                if (! empty($input['voucher_code']) && ! empty($input['contact_id'])) {
+                    $voucher_result = $this->voucherUtil->calculateVoucherDiscountAmount(
+                        $business_id,
+                        (int) $input['contact_id'],
+                        trim($input['voucher_code']),
+                        $input['products'],
+                        $input['tax_rate_id']
+                    );
+
+                    if (empty($voucher_result['success'])) {
+                        return ['success' => 0, 'msg' => $voucher_result['msg'] ?? __('messages.something_went_wrong')];
+                    }
+
+                    $voucher = $voucher_result['voucher'];
+                    $input['discount_type'] = 'fixed';
+                    $input['discount_amount'] = $voucher_result['discount_amount'];
+                }
+
                 $discount = ['discount_type' => $input['discount_type'],
                     'discount_amount' => $input['discount_amount'],
                 ];
@@ -1405,6 +1467,26 @@ class SellPosController extends Controller
                 Media::uploadMedia($business_id, $transaction, $request, 'documents');
 
                 $this->transactionUtil->activityLog($transaction, 'edited', $transaction_before);
+
+                if (! empty($voucher) && $input['status'] == 'final' && empty($transaction->is_suspend)) {
+                    $voucher->status = 'redeemed';
+                    $voucher->redeemed_at = now();
+                    $voucher->redeemed_transaction_id = $transaction->id;
+                    $voucher->save();
+
+                    \App\VoucherRedemption::create([
+                        'voucher_id' => $voucher->id,
+                        'business_id' => $business_id,
+                        'contact_id' => $transaction->contact_id,
+                        'transaction_id' => $transaction->id,
+                        'discount_amount' => (float) ($invoice_total['discount'] ?? 0),
+                        'redeemed_at' => now(),
+                        'meta_json' => [
+                            'voucher_code' => $voucher->code,
+                            'discount_percent' => (float) $voucher->discount_percent,
+                        ],
+                    ]);
+                }
 
                 SellCreatedOrModified::dispatch($transaction);
                 

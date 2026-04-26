@@ -60,6 +60,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VariationTemplateController;
 use App\Http\Controllers\WarrantyController;
 use App\Http\Controllers\WooCommerceWebhookController;
+use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\Api\VoucherApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -155,6 +157,15 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::post('/contacts/check-contacts-id', [ContactController::class, 'checkContactId']);
     Route::get('/contacts/customers', [ContactController::class, 'getCustomers']);
     Route::resource('contacts', ContactController::class);
+    Route::get('/contacts/{contact_id}/vouchers/issue', [VoucherController::class, 'issueModal']);
+    Route::get('/contacts/{contact_id}/vouchers', [VoucherController::class, 'listModal']);
+    Route::post('/contacts/vouchers', [VoucherController::class, 'store']);
+    Route::post('/contacts/vouchers/{voucher_id}/resend', [VoucherController::class, 'resend']);
+    Route::post('/contacts/vouchers/{voucher_id}/cancel', [VoucherController::class, 'cancel']);
+
+    // Website/API endpoints (session-authenticated)
+    Route::post('/api/vouchers/validate', [VoucherApiController::class, 'validateVoucher']);
+    Route::post('/api/vouchers/redeem', [VoucherApiController::class, 'redeemVoucher']);
 
     Route::get('taxonomies-ajax-index-page', [TaxonomyController::class, 'getTaxonomyIndexPage']);
     Route::resource('taxonomies', TaxonomyController::class);
