@@ -111,6 +111,7 @@ return [
     'customers' => 'Customers',
     'voucher_issued' => 'Voucher Issued',
     'vouchers' => 'Vouchers',
+    'voucher_email_failed' => 'The voucher was saved, but the email could not be sent. Check Business email / SMTP settings and your .env MAIL_* values.',
     'voucher_code' => 'Voucher Code',
     'sent_on' => 'Sent on',
     'resend' => 'Resend',

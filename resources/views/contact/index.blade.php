@@ -144,6 +144,7 @@
                             <th>@lang('lang_v1.customer_group')</th>
                             <th>@lang('business.address')</th>
                             <th>@lang('contact.mobile')</th>
+                            <th>@lang('report.total_sell')</th>
                             <th>@lang('lang_v1.vouchers')</th>
                             <th>@lang('contact.total_sale_due')</th>
                             <th>@lang('lang_v1.total_sell_return_due')</th>
@@ -178,14 +179,16 @@
                             <td></td>
                             <td
                                 @if($reward_enabled)
-                                    colspan="10"
-                                @else
                                     colspan="9"
+                                @else
+                                    colspan="8"
                                 @endif>
                                     <strong>
                                         @lang('sale.total'):
                                     </strong>
                             </td>
+                            <td class="footer_customer_total_sell"></td>
+                            <td></td>
                             <td class="footer_contact_due"></td>
                             <td class="footer_contact_return_due"></td>
                         </tr>

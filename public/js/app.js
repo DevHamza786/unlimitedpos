@@ -411,6 +411,7 @@ $(document).ready(function() {
         Array.prototype.push.apply(columns, [{ data: 'customer_group', name: 'cg.name' },
             { data: 'address', name: 'address', orderable: false },
             { data: 'mobile', name: 'mobile' },
+            { data: 'total_sell', name: 'total_sell', searchable: false },
             { data: 'active_vouchers', searchable: false, orderable: false },
             { data: 'due', searchable: false, orderable: false },
             { data: 'return_due', searchable: false, orderable: false },
@@ -478,15 +479,24 @@ $(document).ready(function() {
         "footerCallback": function ( row, data, start, end, display ) {
             var total_due = 0;
             var total_return_due = 0;
+            var total_customer_sell = 0;
             for (var r in data){
                 total_due += $(data[r].due).data('orig-value') ? 
                 parseFloat($(data[r].due).data('orig-value')) : 0;
 
                 total_return_due += $(data[r].return_due).data('orig-value') ? 
                 parseFloat($(data[r].return_due).data('orig-value')) : 0;
+
+                if (typeof data[r].total_sell !== 'undefined' && data[r].total_sell) {
+                    total_customer_sell += $(data[r].total_sell).data('orig-value') ?
+                    parseFloat($(data[r].total_sell).data('orig-value')) : 0;
+                }
             }
             $('.footer_contact_due').html(__currency_trans_from_en(total_due));
             $('.footer_contact_return_due').html(__currency_trans_from_en(total_return_due));
+            if ($('.footer_customer_total_sell').length) {
+                $('.footer_customer_total_sell').html(__currency_trans_from_en(total_customer_sell));
+            }
         }
     });
 

@@ -382,6 +382,12 @@ class ContactController extends Controller
 
                 return $html;
             })
+            ->addColumn('total_sell', function ($row) {
+                $amount = $row->total_invoice ?? 0;
+                $html = '<span class="total_customer_sell" data-orig-value="'.$amount.'" data-highlight=false>'.$this->transactionUtil->num_f($amount, true).'</span>';
+
+                return $html;
+            })
             ->addColumn(
                 'due',
                 '<span class="contact_due" data-orig-value="{{$total_invoice - $invoice_received - $total_ledger_discount}}" data-highlight=true>@format_currency($total_invoice - $invoice_received - $total_ledger_discount)</span>'
@@ -547,7 +553,7 @@ class ContactController extends Controller
             $contacts->removeColumn('total_rp');
         }
 
-        return $contacts->rawColumns(['action', 'opening_balance', 'credit_limit', 'pay_term', 'active_vouchers', 'due', 'return_due', 'name', 'balance'])
+        return $contacts->rawColumns(['action', 'opening_balance', 'credit_limit', 'pay_term', 'active_vouchers', 'total_sell', 'due', 'return_due', 'name', 'balance'])
                         ->make(true);
     }
 

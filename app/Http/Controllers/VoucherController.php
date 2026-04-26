@@ -91,13 +91,6 @@ class VoucherController extends Controller
                 'issued_via' => $validated['issued_via'] ?? 'manual',
             ]);
 
-            if (! empty($validated['send_email'])) {
-                $to = $validated['email_to'] ?? $contact->email;
-                if (! empty($to)) {
-                    $this->sendVoucherEmail($business_id, $contact, $voucher, $to, $validated['voucher_note'] ?? null);
-                }
-            }
-
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -109,12 +102,34 @@ class VoucherController extends Controller
             ];
         }
 
+        $email_failed = false;
+        if (! empty($validated['send_email'])) {
+            $to = $validated['email_to'] ?? $contact->email;
+            if (! empty($to)) {
+                try {
+                    $this->sendVoucherEmail($business_id, $contact, $voucher, $to, $validated['voucher_note'] ?? null);
+                } catch (\Throwable $e) {
+                    $email_failed = true;
+                    \Log::warning('Voucher email failed: '.$e->getMessage(), [
+                        'voucher_id' => $voucher->id,
+                        'to' => $to,
+                    ]);
+                }
+            }
+        }
+
+        $msg = __('lang_v1.voucher_issued');
+        if ($email_failed) {
+            $msg .= ' '.__('lang_v1.voucher_email_failed');
+        }
+
         return [
             'success' => true,
-            'msg' => __('lang_v1.voucher_issued'),
+            'msg' => $msg,
             'data' => [
                 'voucher_id' => $voucher->id,
                 'code' => $voucher->code,
+                'email_failed' => $email_failed,
             ],
         ];
     }
@@ -133,7 +148,16 @@ class VoucherController extends Controller
             return ['success' => false, 'msg' => __('lang_v1.email') . ' ' . __('messages.not_found')];
         }
 
-        $this->sendVoucherEmail($business_id, $contact, $voucher, $contact->email, null);
+        try {
+            $this->sendVoucherEmail($business_id, $contact, $voucher, $contact->email, null);
+        } catch (\Throwable $e) {
+            \Log::warning('Voucher resend email failed: '.$e->getMessage(), ['voucher_id' => $voucher->id]);
+
+            return [
+                'success' => false,
+                'msg' => __('lang_v1.voucher_email_failed'),
+            ];
+        }
 
         return ['success' => true, 'msg' => __('lang_v1.email_sent')];
     }
@@ -194,6 +218,7 @@ class VoucherController extends Controller
             'subject' => $subject,
             'email_body' => $email_body,
             'to_email' => $to_email,
+            'email_settings' => $business->email_settings,
         ];
 
         Notification::route('mail', $to_email)->notify(new CustomerNotification($data));
