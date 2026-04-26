@@ -680,14 +680,44 @@ $(document).ready(function() {
 
     $(document).on('click', '.resend_voucher_email', function(e) {
         e.preventDefault();
-        var href = $(this).data('href');
+        var btn = $(this);
+        var href = btn.data('href');
+        var row = btn.closest('tr');
+        var email = row.find('.voucher_resend_email_input').val();
+        if (typeof email === 'string') {
+            email = email.trim();
+        }
+        if (!email) {
+            toastr.error(typeof LANG !== 'undefined' && LANG.voucher_resend_email_required
+                ? LANG.voucher_resend_email_required
+                : 'Enter a valid email address.');
+            return;
+        }
+        var data = {
+            email_to: email,
+            update_contact_email: row.find('.voucher_update_contact_email_chk').is(':checked') ? 1 : 0,
+        };
         $.ajax({
             method: 'POST',
             url: href,
             dataType: 'json',
+            data: data,
             success: function(result) {
                 if (result.success == true) {
                     toastr.success(result.msg);
+                    var reloadHref = btn.data('reload-href');
+                    if (reloadHref) {
+                        $.ajax({
+                            url: reloadHref,
+                            dataType: 'html',
+                            success: function(html) {
+                                $('.contact_modal').html(html);
+                            },
+                        });
+                    }
+                    if (typeof contact_table !== 'undefined') {
+                        contact_table.ajax.reload();
+                    }
                 } else {
                     toastr.error(result.msg);
                 }

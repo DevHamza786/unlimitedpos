@@ -1,5 +1,6 @@
 LANG = {
     'required': 'Required',
+    'voucher_resend_email_required': 'Enter a valid email address to resend the voucher.',
     'sure': 'Are you sure ?',
     'remove_product': 'Are you sure to remove the product?',
     'cancel_invoice':  'Are you sure to cancel the invoice?',

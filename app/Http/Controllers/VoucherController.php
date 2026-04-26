@@ -134,7 +134,7 @@ class VoucherController extends Controller
         ];
     }
 
-    public function resend($voucher_id)
+    public function resend(Request $request, $voucher_id)
     {
         if (! auth()->user()->can('customer.update')) {
             abort(403, 'Unauthorized action.');
@@ -144,19 +144,29 @@ class VoucherController extends Controller
         $voucher = Voucher::where('business_id', $business_id)->findOrFail($voucher_id);
         $contact = Contact::where('business_id', $business_id)->findOrFail($voucher->contact_id);
 
-        if (empty($contact->email)) {
-            return ['success' => false, 'msg' => __('lang_v1.email') . ' ' . __('messages.not_found')];
-        }
+        $validated = $request->validate([
+            'email_to' => 'required|email',
+        ]);
+
+        $to = $validated['email_to'];
 
         try {
-            $this->sendVoucherEmail($business_id, $contact, $voucher, $contact->email, null);
+            $this->sendVoucherEmail($business_id, $contact, $voucher, $to, null);
         } catch (\Throwable $e) {
-            \Log::warning('Voucher resend email failed: '.$e->getMessage(), ['voucher_id' => $voucher->id]);
+            \Log::warning('Voucher resend email failed: '.$e->getMessage(), [
+                'voucher_id' => $voucher->id,
+                'to' => $to,
+            ]);
 
             return [
                 'success' => false,
-                'msg' => __('lang_v1.voucher_email_failed'),
+                'msg' => __('lang_v1.voucher_resend_email_failed'),
             ];
+        }
+
+        if ($request->boolean('update_contact_email') && $contact->email !== $to) {
+            $contact->email = $to;
+            $contact->save();
         }
 
         return ['success' => true, 'msg' => __('lang_v1.email_sent')];
