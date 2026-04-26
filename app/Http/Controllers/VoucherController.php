@@ -194,6 +194,13 @@ class VoucherController extends Controller
     {
         $business = Business::findOrFail($business_id);
         $template = NotificationTemplate::getTemplate($business_id, 'voucher_issued');
+        $defaults = NotificationTemplate::defaultContentFor('voucher_issued');
+        if (trim((string) ($template['subject'] ?? '')) === '') {
+            $template['subject'] = $defaults['subject'];
+        }
+        if (trim((string) ($template['email_body'] ?? '')) === '') {
+            $template['email_body'] = $defaults['email_body'];
+        }
 
         $expires = ! empty($voucher->expires_at) ? $voucher->expires_at->format('Y-m-d') : __('lang_v1.none');
         $business_logo = ! empty($business->logo) ? '<img src="'.url('uploads/business_logos/'.$business->logo).'" alt="Business Logo" >' : '';

@@ -43,6 +43,23 @@ class NotificationTemplate extends Model
         return $template;
     }
 
+    /**
+     * Default subject/body for a template_for key (used when DB template is missing or empty).
+     */
+    public static function defaultContentFor(string $template_for): array
+    {
+        foreach (self::defaultNotificationTemplates(null) as $row) {
+            if (($row['template_for'] ?? '') === $template_for) {
+                return [
+                    'subject' => $row['subject'] ?? '',
+                    'email_body' => $row['email_body'] ?? '',
+                ];
+            }
+        }
+
+        return ['subject' => '', 'email_body' => ''];
+    }
+
     public static function customerNotifications()
     {
         return [
