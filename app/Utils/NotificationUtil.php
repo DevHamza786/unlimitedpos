@@ -301,10 +301,17 @@ class NotificationUtil extends Util
             $email_settings['mail_username'] = config('mail.mailers.smtp.username');
             $email_settings['mail_password'] = config('mail.mailers.smtp.password');
             $email_settings['mail_encryption'] = config('mail.mailers.smtp.encryption');
-            $email_settings['mail_from_address'] = config('mail.mailers.smtp.address');
+            $email_settings['mail_from_address'] = config('mail.mailers.smtp.address')
+                ?: (config('mail.from.address') ?? '');
         }
 
         $email_settings = is_array($email_settings) ? $email_settings : [];
+
+        foreach (['mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'mail_from_address', 'mail_from_name'] as $_ek) {
+            if (isset($email_settings[$_ek]) && is_string($email_settings[$_ek])) {
+                $email_settings[$_ek] = trim($email_settings[$_ek]);
+            }
+        }
 
         $smtpDefaults = config('mail.mailers.smtp', []);
         $fromDefaults = config('mail.from', []);
@@ -314,40 +321,46 @@ class NotificationUtil extends Util
             $mail_host = $smtpDefaults['host'] ?? null;
         }
         if ($mail_host === null || $mail_host === '') {
-            $mail_host = env('MAIL_HOST', '127.0.0.1');
+            $mail_host = '127.0.0.1';
         }
 
         $mail_port = $email_settings['mail_port'] ?? null;
         if ($mail_port === null || $mail_port === '') {
-            $mail_port = $smtpDefaults['port'] ?? env('MAIL_PORT', 587);
+            $mail_port = $smtpDefaults['port'] ?? 587;
         }
+        $mail_port = (int) $mail_port;
 
         $mail_username = $email_settings['mail_username'] ?? null;
         if ($mail_username === null || $mail_username === '') {
-            $mail_username = $smtpDefaults['username'] ?? env('MAIL_USERNAME');
+            $mail_username = $smtpDefaults['username'] ?? null;
         }
 
         $mail_password = $email_settings['mail_password'] ?? null;
-        if ($mail_password === null || $mail_password === '') {
-            $mail_password = $smtpDefaults['password'] ?? env('MAIL_PASSWORD');
+        if ($mail_password === null || $mail_password === '' || preg_match('/^\*+$/', (string) $mail_password)) {
+            $mail_password = $smtpDefaults['password'] ?? null;
         }
 
         $mail_encryption = $email_settings['mail_encryption'] ?? null;
         if ($mail_encryption === null || $mail_encryption === '') {
-            $mail_encryption = $smtpDefaults['encryption'] ?? env('MAIL_ENCRYPTION', 'tls');
+            $mail_encryption = $smtpDefaults['encryption'] ?? 'tls';
         }
 
         $mail_from_address = $email_settings['mail_from_address'] ?? null;
         if ($mail_from_address === null || $mail_from_address === '') {
-            $mail_from_address = $smtpDefaults['address'] ?? ($fromDefaults['address'] ?? env('MAIL_FROM_ADDRESS', 'hello@example.com'));
+            $mail_from_address = $smtpDefaults['address'] ?? ($fromDefaults['address'] ?? 'hello@example.com');
         }
 
         $mail_from_name = $email_settings['mail_from_name'] ?? null;
         if ($mail_from_name === null || $mail_from_name === '') {
-            $mail_from_name = $fromDefaults['name'] ?? env('MAIL_FROM_NAME', 'Example');
+            $mail_from_name = $fromDefaults['name'] ?? 'Example';
         }
 
         $mail_driver = ! empty($email_settings['mail_driver']) ? $email_settings['mail_driver'] : 'smtp';
+
+        // Laravel 9 only maps encryption=tls to smtps on 465; MAIL_ENCRYPTION=ssl leaves an empty scheme and
+        // Symfony never enables implicit TLS. Force smtps for ssl / smtps so port 465 works.
+        $encNorm = strtolower((string) $mail_encryption);
+        $needsImplicitTls = in_array($encNorm, ['ssl', 'smtps'], true);
 
         Config::set('mail.driver', $mail_driver);
         Config::set('mail.host', $mail_host);
@@ -363,6 +376,17 @@ class NotificationUtil extends Util
         Config::set('mail.mailers.smtp.username', $mail_username);
         Config::set('mail.mailers.smtp.password', $mail_password);
         Config::set('mail.mailers.smtp.encryption', $mail_encryption);
+
+        if ($needsImplicitTls) {
+            Config::set('mail.scheme', 'smtps');
+            Config::set('mail.mailers.smtp.scheme', 'smtps');
+        } else {
+            Config::set('mail.scheme', null);
+            Config::set('mail.mailers.smtp.scheme', null);
+        }
+
+        Config::set('mail.default', is_string($mail_driver) ? $mail_driver : 'smtp');
+        Config::set('mail.mailers.smtp.address', $mail_from_address);
     }
 
     public function replaceHmsBookingTags($data, $transaction, $adults, $childrens, $customer){
