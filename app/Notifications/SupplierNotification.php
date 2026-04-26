@@ -4,7 +4,7 @@ namespace App\Notifications;
 
 use App\Utils\NotificationUtil;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 
 class SupplierNotification extends Notification
@@ -47,17 +47,20 @@ class SupplierNotification extends Notification
      * Get the mail representation of the notification.
      *
      * @param  mixed  $notifiable
-     * @return \Illuminate\Notifications\Messages\MailMessage
+     * @return \Illuminate\Mail\Mailable
      */
     public function toMail($notifiable)
     {
         $data = $this->notificationInfo;
-        $mail = (new MailMessage)
-                    ->subject($data['subject'])
-                    ->view(
-                        'emails.plain_html',
-                        ['content' => $data['email_body']]
-                    );
+
+        $html = view('emails.plain_html', ['content' => $data['email_body']])->render();
+
+        $mail = (new Mailable)
+            ->subject($data['subject'])
+            ->html($html);
+
+        $this->addressMailableRecipients($mail, $notifiable);
+
         if (! empty($this->cc)) {
             $mail->cc($this->cc);
         }
@@ -72,6 +75,33 @@ class SupplierNotification extends Notification
         }
 
         return $mail;
+    }
+
+    /**
+     * @param  \Illuminate\Mail\Mailable  $mail
+     * @param  mixed  $notifiable
+     */
+    protected function addressMailableRecipients(Mailable $mail, $notifiable): void
+    {
+        $to = $notifiable->routeNotificationFor('mail', $this);
+
+        if (is_string($to)) {
+            $mail->to($to);
+
+            return;
+        }
+
+        if (! is_array($to)) {
+            return;
+        }
+
+        foreach ($to as $email => $name) {
+            if (is_numeric($email)) {
+                $mail->to(is_string($name) ? $name : ($name->email ?? $name));
+            } else {
+                $mail->to($email, is_string($name) ? $name : null);
+            }
+        }
     }
 
     /**
