@@ -1,8 +1,8 @@
-<div class="modal fade" id="woocommerce_import_modal" tabindex="-1" role="dialog">
+<div class="modal" id="woocommerce_import_modal" tabindex="-1" role="dialog" data-backdrop="static">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <button type="button" class="close" onclick="closeWooImportModal()">&times;</button>
                 <h4 class="modal-title">@lang('business.woocommerce_import_products')</h4>
             </div>
             <div class="modal-body">
@@ -41,8 +41,18 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">@lang('messages.close')</button>
+                <button type="button" class="btn btn-default" onclick="closeWooImportModal()">@lang('messages.close')</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function closeWooImportModal() {
+    $('#woocommerce_import_modal').modal('hide');
+    setTimeout(function() {
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+    }, 200);
+}
+</script>

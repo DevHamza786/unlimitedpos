@@ -339,11 +339,12 @@
                     } else {
                         swal({ text: result.message, icon: 'error' });
                     }
-                    $('#woocommerce_import_modal').modal('hide');
+                    closeWooImportModal();
                 },
                 error: function(xhr) {
                     var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
                     swal({ text: msg, icon: 'error' });
+                    closeWooImportModal();
                 }
             });
         });

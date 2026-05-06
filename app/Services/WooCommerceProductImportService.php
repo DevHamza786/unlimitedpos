@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Business;
+use App\BusinessLocation;
 use App\Category;
 use App\Product;
 use App\Unit;
 use App\Variation;
 use App\ProductVariation;
+use App\VariationLocationDetails;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -199,6 +201,8 @@ class WooCommerceProductImportService
             $this->createVariableVariations($product, $wooProduct);
         }
 
+        $this->syncProductLocations($product);
+
         return [
             'success' => true,
             'message' => __('business.woocommerce_product_imported'),
@@ -211,10 +215,11 @@ class WooCommerceProductImportService
         // Update basic fields
         $product->name = $wooProduct['name'] ?? $product->name;
         $product->product_description = $this->cleanHtml($wooProduct['description'] ?? '');
+        $product->enable_stock = (bool) ($wooProduct['manage_stock'] ?? false) ? 1 : 0;
 
-        // Update image if changed
-        if (empty($product->image) || $product->image !== $this->downloadImage($business, $wooProduct)) {
-            $product->image = $this->downloadImage($business, $wooProduct);
+        $newImage = $this->downloadImage($business, $wooProduct);
+        if (empty($product->image) || ($newImage !== null && $product->image !== $newImage)) {
+            $product->image = $newImage ?? $product->image;
         }
 
         $product->save();
@@ -227,16 +232,15 @@ class WooCommerceProductImportService
                 $variation->sell_price_inc_tax = $price;
                 $variation->save();
 
-                // Update stock
-                if ($product->enable_stock) {
-                    $stockQty = (int) ($wooProduct['stock_quantity'] ?? 0);
-                    foreach ($variation->variation_location_details as $vld) {
-                        $vld->qty_available = $stockQty;
-                        $vld->save();
-                    }
+                $enableStock = (bool) ($wooProduct['manage_stock'] ?? false);
+                $stockQty = (int) ($wooProduct['stock_quantity'] ?? 0);
+                if ($enableStock) {
+                    $this->syncSingleVariationStock($product, $variation, $stockQty);
                 }
             }
         }
+
+        $this->syncProductLocations($product);
 
         return [
             'success' => true,
@@ -263,19 +267,7 @@ class WooCommerceProductImportService
 
         // Add stock if enabled
         if ($enableStock) {
-            $defaultLocation = \App\BusinessLocation::where('business_id', $product->business_id)
-                ->orderBy('id')
-                ->first();
-
-            if ($defaultLocation) {
-                \App\VariationLocationDetails::create([
-                    'location_id' => $defaultLocation->id,
-                    'variation_id' => $variation->id,
-                    'product_id' => $product->id,
-                    'qty_available' => $stockQty,
-                    'qty_on_hand' => $stockQty,
-                ]);
-            }
+            $this->ensureVariationLocationStock($product, $variation, $stockQty);
         }
     }
 
@@ -325,20 +317,65 @@ class WooCommerceProductImportService
             ]);
 
             if ($product->enable_stock) {
-                $defaultLocation = \App\BusinessLocation::where('business_id', $product->business_id)
-                    ->orderBy('id')
-                    ->first();
-
-                if ($defaultLocation) {
-                    \App\VariationLocationDetails::create([
-                        'location_id' => $defaultLocation->id,
-                        'variation_id' => $variation->id,
-                        'product_id' => $product->id,
-                        'qty_available' => $varStock,
-                        'qty_on_hand' => $varStock,
-                    ]);
-                }
+                $this->ensureVariationLocationStock($product, $variation, $varStock);
             }
+        }
+    }
+
+    /**
+     * Attach product to all business locations so the "Business location" column and filters work.
+     */
+    private function syncProductLocations(Product $product): void
+    {
+        $locationIds = BusinessLocation::where('business_id', $product->business_id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        if (! empty($locationIds)) {
+            $product->product_locations()->sync($locationIds);
+        }
+    }
+
+    private function ensureVariationLocationStock(Product $product, Variation $variation, int $stockQty): void
+    {
+        $defaultLocation = BusinessLocation::where('business_id', $product->business_id)
+            ->orderBy('id')
+            ->first();
+
+        if (! $defaultLocation) {
+            return;
+        }
+
+        VariationLocationDetails::updateOrCreate(
+            [
+                'variation_id' => $variation->id,
+                'product_id' => $product->id,
+                'location_id' => $defaultLocation->id,
+            ],
+            [
+                'product_variation_id' => $variation->product_variation_id,
+                'qty_available' => $stockQty,
+            ]
+        );
+    }
+
+    private function syncSingleVariationStock(Product $product, Variation $variation, int $stockQty): void
+    {
+        $details = $variation->variation_location_details;
+
+        if ($details->isEmpty()) {
+            $this->ensureVariationLocationStock($product, $variation, $stockQty);
+
+            return;
+        }
+
+        foreach ($details as $vld) {
+            $vld->qty_available = $stockQty;
+            if (empty($vld->product_variation_id)) {
+                $vld->product_variation_id = $variation->product_variation_id;
+            }
+            $vld->save();
         }
     }
 
@@ -450,8 +487,15 @@ class WooCommerceProductImportService
             return null;
         }
 
+        $verify = (bool) config('constants.woocommerce_verify_ssl', true);
+
         try {
-            $response = Http::timeout(30)->get($imageUrl);
+            $response = Http::withHeaders([
+                'User-Agent' => 'UltimatePOS-WooCommerce-Import/1.0',
+            ])
+                ->withOptions(['verify' => $verify])
+                ->timeout(30)
+                ->get($imageUrl);
             if (! $response->successful()) {
                 return null;
             }
@@ -470,7 +514,12 @@ class WooCommerceProductImportService
             }
 
             $filename = 'woo-'.time().'-'.Str::random(8).'.'.$ext;
-            $path = public_path('uploads/product_img/'.$filename);
+            $relativeDir = config('constants.product_img_path');
+            $dir = public_path('uploads'.DIRECTORY_SEPARATOR.$relativeDir);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            $path = $dir.DIRECTORY_SEPARATOR.$filename;
 
             file_put_contents($path, $content);
 
