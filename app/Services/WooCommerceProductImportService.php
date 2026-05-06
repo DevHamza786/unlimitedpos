@@ -264,7 +264,7 @@ class WooCommerceProductImportService
         // Add stock if enabled
         if ($enableStock) {
             $defaultLocation = \App\BusinessLocation::where('business_id', $product->business_id)
-                ->where('is_default', 1)
+                ->orderBy('id')
                 ->first();
 
             if ($defaultLocation) {
@@ -326,7 +326,7 @@ class WooCommerceProductImportService
 
             if ($product->enable_stock) {
                 $defaultLocation = \App\BusinessLocation::where('business_id', $product->business_id)
-                    ->where('is_default', 1)
+                    ->orderBy('id')
                     ->first();
 
                 if ($defaultLocation) {

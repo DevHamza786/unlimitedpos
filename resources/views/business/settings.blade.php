@@ -239,6 +239,12 @@
             loadWooCommerceProducts();
         });
 
+        // Clean up modal backdrop on hidden
+        $('#woocommerce_import_modal').on('hidden.bs.modal', function() {
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+        });
+
         function loadWooCommerceProducts(page = 1) {
             $('#woo_import_loading').removeClass('hide');
             $('#woo_import_error').addClass('hide');
