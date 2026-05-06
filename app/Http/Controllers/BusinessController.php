@@ -6,6 +6,8 @@ use App\Business;
 use App\BusinessLocation;
 use App\Currency;
 use App\Notifications\TestEmailNotification;
+use App\Services\SquarePaymentsApiClient;
+use App\Services\SquarePaymentsImportService;
 use App\Services\WooCommerceConnectionService;
 use App\System;
 use App\TaxRate;
@@ -513,6 +515,18 @@ class BusinessController extends Controller
                 $business->woocommerce_webhook_secret = trim((string) $request->input('woocommerce_webhook_secret'));
             }
 
+            $business->square_enabled = $request->boolean('square_enabled');
+            $business->square_environment = $request->input('square_environment') === 'sandbox' ? 'sandbox' : 'production';
+            if ($request->has('square_location_id')) {
+                $loc = trim((string) $request->input('square_location_id'));
+                $business->square_location_id = $loc !== '' ? $loc : null;
+            }
+            if ($request->boolean('square_remove_token')) {
+                $business->square_access_token = null;
+            } elseif ($request->filled('square_access_token')) {
+                $business->square_access_token = trim((string) $request->input('square_access_token'));
+            }
+
             $business->save();
 
             //update session data
@@ -696,6 +710,63 @@ class BusinessController extends Controller
         return response()->json([
             'success' => $result['success'] ? 1 : 0,
             'msg' => $result['message'],
+        ]);
+    }
+
+    public function postTestSquare(Request $request): JsonResponse
+    {
+        if (! auth()->user()->can('business_settings.access')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $business_id = $request->session()->get('user.business_id');
+        $token = trim((string) $request->input('square_access_token', ''));
+        $env = $request->input('square_environment', 'production') === 'sandbox' ? 'sandbox' : 'production';
+
+        if ($token === '') {
+            $business = Business::find($business_id);
+            if ($business !== null && ! empty($business->square_access_token)) {
+                $token = $business->square_access_token;
+                $env = $business->square_environment === 'sandbox' ? 'sandbox' : 'production';
+            }
+        }
+
+        if ($token === '') {
+            return response()->json([
+                'success' => 0,
+                'msg' => __('business.square_token_required'),
+            ]);
+        }
+
+        $client = new SquarePaymentsApiClient($token, $env);
+        $result = $client->listLocations();
+
+        return response()->json([
+            'success' => $result['success'] ? 1 : 0,
+            'msg' => $result['message'],
+        ]);
+    }
+
+    public function postSquareSyncPayments(Request $request, SquarePaymentsImportService $importService): JsonResponse
+    {
+        if (! auth()->user()->can('business_settings.access')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $business = Business::find($request->session()->get('user.business_id'));
+        if ($business === null) {
+            return response()->json(['success' => 0, 'msg' => __('messages.something_went_wrong')]);
+        }
+
+        $days = max(1, min(90, (int) $request->input('days', 7)));
+        $result = $importService->syncRecentPayments($business, $days);
+
+        return response()->json([
+            'success' => $result['success'] ? 1 : 0,
+            'msg' => $result['message'],
+            'imported' => $result['imported'],
+            'skipped' => $result['skipped'],
+            'pages' => $result['pages'],
         ]);
     }
 }

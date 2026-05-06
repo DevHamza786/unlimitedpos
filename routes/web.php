@@ -129,6 +129,8 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::post('/test-email', [BusinessController::class, 'testEmailConfiguration']);
     Route::post('/test-sms', [BusinessController::class, 'testSmsConfiguration']);
     Route::post('/business/test-woocommerce', [BusinessController::class, 'postTestWooCommerce']);
+    Route::post('/business/test-square', [BusinessController::class, 'postTestSquare']);
+    Route::post('/business/square/sync-payments', [BusinessController::class, 'postSquareSyncPayments']);
     Route::get('/business/settings', [BusinessController::class, 'getBusinessSettings'])->name('business.getBusinessSettings');
     Route::post('/business/update', [BusinessController::class, 'postBusinessSettings'])->name('business.postBusinessSettings');
     Route::get('/user/profile', [UserController::class, 'getProfile'])->name('user.getProfile');

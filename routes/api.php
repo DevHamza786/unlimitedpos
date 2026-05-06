@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\WcOrderInboundController;
 use Illuminate\Http\Request;
 
 /*
@@ -16,3 +17,10 @@ use Illuminate\Http\Request;
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::prefix('wc-inbound')
+    ->middleware(['api', 'wc.inbound', 'throttle:120,1'])
+    ->group(function () {
+        Route::get('/ping', [WcOrderInboundController::class, 'ping']);
+        Route::post('/orders', [WcOrderInboundController::class, 'store']);
+    });

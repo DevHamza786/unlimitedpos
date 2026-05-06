@@ -25,7 +25,7 @@ class Business extends Model
      *
      * @var array
      */
-    protected $hidden = ['woocommerce_consumer_key', 'woocommerce_consumer_secret', 'woocommerce_webhook_secret'];
+    protected $hidden = ['woocommerce_consumer_key', 'woocommerce_consumer_secret', 'woocommerce_webhook_secret', 'square_access_token'];
 
     /**
      * The attributes that should be cast to native types.
@@ -44,6 +44,9 @@ class Business extends Model
         'woocommerce_consumer_key' => 'encrypted',
         'woocommerce_consumer_secret' => 'encrypted',
         'woocommerce_webhook_secret' => 'encrypted',
+        'square_enabled' => 'boolean',
+        'square_access_token' => 'encrypted',
+        'square_last_synced_at' => 'datetime',
     ];
 
     /**
@@ -153,5 +156,18 @@ class Business extends Model
     public function isWooCommerceStoreConfigured(): bool
     {
         return (bool) $this->woocommerce_enabled && $this->hasWooCommerceApiCredentials();
+    }
+
+    /**
+     * Square Developer: Application access token + Location ID from dashboard.
+     */
+    public function hasSquareApiCredentials(): bool
+    {
+        if (! $this->square_enabled) {
+            return false;
+        }
+
+        return ! empty(trim((string) $this->square_location_id))
+            && ! empty($this->square_access_token);
     }
 }

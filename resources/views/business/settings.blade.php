@@ -82,6 +82,7 @@
                 @include('business.partials.settings_modules')
                 <!-- tab 12 end -->
                 @include('business.partials.settings_woocommerce')
+                @include('business.partials.settings_square')
                 @include('business.partials.woocommerce_import_modal')
                 @include('business.partials.settings_custom_labels')
             </div>
@@ -227,6 +228,58 @@
                     }
                 },
                 error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
+                    swal({ text: msg, icon: 'error' });
+                }
+            });
+        });
+
+        $('#test_square_btn').click(function() {
+            var data = {
+                _token: '{{ csrf_token() }}',
+                square_access_token: $('#square_access_token').val(),
+                square_environment: $('#square_environment').val(),
+            };
+            $.ajax({
+                method: 'post',
+                data: data,
+                url: "{{ action([\App\Http\Controllers\BusinessController::class, 'postTestSquare']) }}",
+                dataType: 'json',
+                success: function(result) {
+                    if (result.success == 1 || result.success === true) {
+                        swal({ text: result.msg, icon: 'success' });
+                    } else {
+                        swal({ text: result.msg, icon: 'error' });
+                    }
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
+                    swal({ text: msg, icon: 'error' });
+                }
+            });
+        });
+
+        $('#square_sync_payments_btn').click(function() {
+            var days = prompt('{{ __("business.square_days_back") }}', '7');
+            if (days === null) { return; }
+            days = parseInt(days, 10) || 7;
+            var data = { _token: '{{ csrf_token() }}', days: days };
+            $(this).prop('disabled', true);
+            $.ajax({
+                method: 'post',
+                data: data,
+                url: "{{ action([\App\Http\Controllers\BusinessController::class, 'postSquareSyncPayments']) }}",
+                dataType: 'json',
+                success: function(result) {
+                    $('#square_sync_payments_btn').prop('disabled', false);
+                    if (result.success == 1 || result.success === true) {
+                        swal({ text: result.msg, icon: 'success' });
+                    } else {
+                        swal({ text: result.msg, icon: 'error' });
+                    }
+                },
+                error: function(xhr) {
+                    $('#square_sync_payments_btn').prop('disabled', false);
                     var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
                     swal({ text: msg, icon: 'error' });
                 }
