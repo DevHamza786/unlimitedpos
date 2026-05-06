@@ -82,6 +82,7 @@
                 @include('business.partials.settings_modules')
                 <!-- tab 12 end -->
                 @include('business.partials.settings_woocommerce')
+                @include('business.partials.woocommerce_import_modal')
                 @include('business.partials.settings_custom_labels')
             </div>
         </div>
@@ -227,6 +228,115 @@
                 },
                 error: function(xhr) {
                     var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
+                    swal({ text: msg, icon: 'error' });
+                }
+            });
+        });
+
+        // WooCommerce product import
+        $('#import_woocommerce_products_btn').click(function() {
+            $('#woocommerce_import_modal').modal('show');
+            loadWooCommerceProducts();
+        });
+
+        function loadWooCommerceProducts(page = 1) {
+            $('#woo_import_loading').removeClass('hide');
+            $('#woo_import_error').addClass('hide');
+            $('#woo_import_products_list').addClass('hide');
+            $('#woo_import_result').addClass('hide');
+
+            $.ajax({
+                method: 'get',
+                url: '/woocommerce/products',
+                data: { page: page, per_page: 50 },
+                dataType: 'json',
+                success: function(result) {
+                    $('#woo_import_loading').addClass('hide');
+                    if (result.success) {
+                        var products = result.products;
+                        var tbody = $('#woo_products_tbody');
+                        tbody.empty();
+
+                        $.each(products, function(index, product) {
+                            var type = product.type === 'variable' ? 'Variable' : 'Simple';
+                            var price = product.regular_price || '0';
+                            var sku = product.sku || '-';
+                            var name = product.name || 'Untitled';
+
+                            tbody.append(
+                                '<tr>' +
+                                '<td><input type="checkbox" class="woo_product_check" value="' + product.id + '"></td>' +
+                                '<td>' + name + '</td>' +
+                                '<td>' + sku + '</td>' +
+                                '<td>' + price + '</td>' +
+                                '<td>' + type + '</td>' +
+                                '</tr>'
+                            );
+                        });
+
+                        $('#woo_import_products_list').removeClass('hide');
+                        $('#woo_select_all').prop('checked', false);
+                        updateImportButton();
+                    } else {
+                        $('#woo_import_error').text(result.message).removeClass('hide');
+                    }
+                },
+                error: function(xhr) {
+                    $('#woo_import_loading').addClass('hide');
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
+                    $('#woo_import_error').text(msg).removeClass('hide');
+                }
+            });
+        }
+
+        $('#woo_select_all').change(function() {
+            $('.woo_product_check').prop('checked', $(this).prop('checked'));
+            updateImportButton();
+        });
+
+        $(document).on('change', '.woo_product_check', function() {
+            updateImportButton();
+        });
+
+        function updateImportButton() {
+            var count = $('.woo_product_check:checked').length;
+            $('#woo_import_selected_btn').prop('disabled', count === 0);
+            $('#woo_import_selected_btn').html(
+                '<i class="fa fa-download"></i> ' +
+                $('#woo_import_selected_btn').data('label') + ' (' + count + ')'
+            );
+        }
+
+        $('#woo_import_selected_btn').click(function() {
+            var selectedIds = [];
+            $('.woo_product_check:checked').each(function() {
+                selectedIds.push($(this).val());
+            });
+
+            if (selectedIds.length === 0) {
+                return;
+            }
+
+            $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Importing...');
+
+            $.ajax({
+                method: 'post',
+                url: '/woocommerce/import-products',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    product_ids: selectedIds
+                },
+                dataType: 'json',
+                success: function(result) {
+                    if (result.success) {
+                        swal({ text: result.message, icon: 'success' });
+                    } else {
+                        swal({ text: result.message, icon: 'error' });
+                    }
+                    $('#woocommerce_import_modal').modal('hide');
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
                     swal({ text: msg, icon: 'error' });
                 }
             });

@@ -410,6 +410,7 @@ return [
     'duplicate_product' => 'Duplicate Product',
     'delete_selected' => 'Delete Selected',
     'no_row_selected' => 'No row selected',
+    'no_products_selected' => 'No products selected',
     'duplicate_sell' => 'Duplicate Sell',
     'duplicate_sell_created_successfully' => 'Duplicate Sell created successfully',
     'modules' => 'Modules',

@@ -39,6 +39,14 @@
         @if ($business->hasWooCommerceApiCredentials())
         <div class="col-sm-12"><hr></div>
         <div class="col-sm-12">
+            <h5>@lang('business.woocommerce_import_products')</h5>
+            <p class="help-block">@lang('business.woocommerce_import_products_help')</p>
+            <button type="button" class="btn btn-success" id="import_woocommerce_products_btn">
+                <i class="fa fa-download"></i> @lang('business.woocommerce_import_products_btn')
+            </button>
+        </div>
+        <div class="col-sm-12"><hr></div>
+        <div class="col-sm-12">
             <h5>@lang('business.woocommerce_orders_to_pos')</h5>
             <p class="help-block">@lang('business.woocommerce_orders_to_pos_help')</p>
             <div class="form-group">

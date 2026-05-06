@@ -60,6 +60,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VariationTemplateController;
 use App\Http\Controllers\WarrantyController;
 use App\Http\Controllers\WooCommerceWebhookController;
+use App\Http\Controllers\WooCommerceController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\Api\VoucherApiController;
 use Illuminate\Support\Facades\Route;
@@ -204,6 +205,10 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::post('/products/toggle-woocommerce-sync', [ProductController::class, 'toggleWooCommerceSync']);
     Route::post('/products/{id}/woocommerce-push', [ProductController::class, 'postPushProductToWooCommerce'])->where('id', '[0-9]+');
     Route::post('/products/woocommerce-push-bulk', [ProductController::class, 'postBulkPushProductsToWooCommerce']);
+
+    // WooCommerce product import
+    Route::get('/woocommerce/products', [WooCommerceController::class, 'listProducts']);
+    Route::post('/woocommerce/import-products', [WooCommerceController::class, 'importProducts']);
 
     Route::resource('products', ProductController::class);
     Route::get('/toggle-subscription/{id}', 'SellPosController@toggleRecurringInvoices');
