@@ -40,7 +40,7 @@ final class POS_Woo_Sync_API_Client {
 		$headers = array(
 			'Content-Type' => 'application/json',
 			'Accept'       => 'application/json',
-			'User-Agent'   => 'UltimatePOS-Woo-Sync/' . POS_WOO_SYNC_VERSION . '; ' . home_url( '/' ),
+			'User-Agent'   => 'DollydustcountryPOS-Woo-Sync/' . POS_WOO_SYNC_VERSION . '; ' . home_url( '/' ),
 		);
 
 		$headers['Authorization'] = 'Bearer ' . $secret;

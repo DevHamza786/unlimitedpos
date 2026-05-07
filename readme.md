@@ -1,3 +1,3 @@
-## About Ultimate POS
+## About Dollydustcountry POS
 
-Ultimate POS 
+Dollydustcountry POS

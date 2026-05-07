@@ -1,11 +1,11 @@
-# WooCommerce / Square → Ultimate POS order sync
+# WooCommerce / Square → Dollydustcountry POS order sync
 
-This integration pushes **paid WooCommerce orders** to your Ultimate POS Laravel app using **WooCommerce hooks** (no Square API polling). Successful deliveries are stored in `wc_inbound_order_syncs`.
+This integration pushes **paid WooCommerce orders** to your Dollydustcountry POS Laravel app using **WooCommerce hooks** (no Square API polling). Successful deliveries are stored in `wc_inbound_order_syncs`.
 
 ## Folder structure
 
 ```
-Ultimate-POS/
+Dollydustcountry-POS/
 ├── app/Http/Controllers/Api/WcOrderInboundController.php
 ├── app/Http/Middleware/VerifyWcInboundSyncToken.php
 ├── app/WcInboundOrderSync.php
@@ -60,7 +60,7 @@ Ultimate-POS/
 ## WordPress plugin setup
 
 1. Copy `wordpress-plugins/ultimatepos-woo-sync` to `wp-content/plugins/ultimatepos-woo-sync`.
-2. Activate **UltimatePOS WooCommerce Order Sync** in WP admin.
+2. Activate **Dollydustcountry POS WooCommerce Order Sync** in WP admin.
 3. **WooCommerce → POS Order Sync**:
    - **POS API URL**: `https://your-pos-domain.com/api/wc-inbound/orders`
    - **API secret**: same as `WC_INBOUND_SYNC_SECRET`

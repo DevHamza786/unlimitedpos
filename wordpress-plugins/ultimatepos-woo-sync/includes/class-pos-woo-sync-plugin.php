@@ -68,7 +68,7 @@ final class POS_Woo_Sync_Plugin {
 			return;
 		}
 		echo '<div class="notice notice-error"><p>';
-		echo esc_html__( 'UltimatePOS WooCommerce Order Sync requires WooCommerce to be installed and active.', 'ultimatepos-woo-sync' );
+		echo esc_html__( 'Dollydustcountry POS WooCommerce Order Sync requires WooCommerce to be installed and active.', 'ultimatepos-woo-sync' );
 		echo '</p></div>';
 	}
 }

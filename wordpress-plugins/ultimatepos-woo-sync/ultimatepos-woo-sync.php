@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: UltimatePOS WooCommerce Order Sync
- * Description: Push successful WooCommerce orders (e.g. Square payments) to your Ultimate POS / custom dashboard API using WooCommerce hooks, with retries and logging.
+ * Plugin Name: Dollydustcountry POS WooCommerce Order Sync
+ * Description: Push successful WooCommerce orders (e.g. Square payments) to your Dollydustcountry POS / custom dashboard API using WooCommerce hooks, with retries and logging.
  * Version: 1.0.0
- * Author: Ultimate POS Integration
+ * Author: Dollydustcountry POS Integration
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * WC requires at least: 8.0

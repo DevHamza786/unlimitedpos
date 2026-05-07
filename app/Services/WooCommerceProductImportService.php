@@ -491,7 +491,7 @@ class WooCommerceProductImportService
 
         try {
             $response = Http::withHeaders([
-                'User-Agent' => 'UltimatePOS-WooCommerce-Import/1.0',
+                'User-Agent' => 'DollydustcountryPOS-WooCommerce-Import/1.0',
             ])
                 ->withOptions(['verify' => $verify])
                 ->timeout(30)

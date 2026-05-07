@@ -75,7 +75,7 @@ final class POS_Woo_Sync_Admin {
 		$nonce = wp_nonce_field( 'pos_woo_sync_save', '_wpnonce', true, false );
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'UltimatePOS — WooCommerce order sync', 'ultimatepos-woo-sync' ); ?></h1>
+			<h1><?php esc_html_e( 'Dollydustcountry POS — WooCommerce order sync', 'ultimatepos-woo-sync' ); ?></h1>
 			<p><?php esc_html_e( 'On successful payment, order payloads are sent to your POS API (async + retries). Uses WooCommerce hooks only — no Square polling.', 'ultimatepos-woo-sync' ); ?></p>
 
 			<form method="post" action="options.php">
@@ -97,7 +97,7 @@ final class POS_Woo_Sync_Admin {
 						<th scope="row"><label for="pos_api_url"><?php esc_html_e( 'POS API URL', 'ultimatepos-woo-sync' ); ?></label></th>
 						<td>
 							<input type="url" class="large-text" id="pos_api_url" name="<?php echo esc_attr( POS_Woo_Sync_Plugin::OPTION ); ?>[api_url]" value="<?php echo esc_attr( $s['api_url'] ); ?>" placeholder="https://your-pos.com/api/wc-inbound/orders" />
-							<p class="description"><?php esc_html_e( 'Full URL to POST JSON (Ultimate POS: /api/wc-inbound/orders).', 'ultimatepos-woo-sync' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Full URL to POST JSON (Dollydustcountry POS: /api/wc-inbound/orders).', 'ultimatepos-woo-sync' ); ?></p>
 						</td>
 					</tr>
 					<tr>

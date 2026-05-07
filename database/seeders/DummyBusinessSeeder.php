@@ -1066,7 +1066,7 @@ class DummyBusinessSeeder extends Seeder
             ['key' => 'default_business_active_status', 'value' => '1'],
             ['key' => 'superadmin_version', 'value' => config('superadmin.module_version')],
             ['key' => 'app_currency_id', 'value' => '2'],
-            ['key' => 'invoice_business_name', 'value' => 'Ultimate POS'],
+            ['key' => 'invoice_business_name', 'value' => 'Dollydustcountry POS'],
             ['key' => 'invoice_business_landmark', 'value' => 'Linking Street'],
             ['key' => 'invoice_business_zip', 'value' => '85001'],
             ['key' => 'invoice_business_state', 'value' => 'Arizona'],
