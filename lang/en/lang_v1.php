@@ -140,6 +140,7 @@ return [
     'add_description' => 'Add Description',
     'cash' => 'Cash',
     'card' => 'Card',
+    'square' => 'Square',
     'cheque' => 'Cheque',
     'bank_transfer' => 'Bank Transfer',
     'other' => 'Other',

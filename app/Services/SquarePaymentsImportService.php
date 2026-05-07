@@ -3,6 +3,10 @@
 namespace App\Services;
 
 use App\Business;
+use App\BusinessLocation;
+use App\Contact;
+use App\Transaction;
+use App\TransactionPayment;
 use App\WcInboundOrderSync;
 use Carbon\Carbon;
 
@@ -13,7 +17,7 @@ class SquarePaymentsImportService
      *
      * @return array{success: bool, imported: int, skipped: int, pages: int, message: string}
      */
-    public function syncRecentPayments(Business $business, int $daysBack = 7, int $maxPages = 15): array
+    public function syncRecentPayments(Business $business, int $daysBack = 7, int $maxPages = 15, ?int $createdBy = null): array
     {
         if (! $business->hasSquareApiCredentials()) {
             return [
@@ -36,6 +40,14 @@ class SquarePaymentsImportService
         $skipped = 0;
         $pages = 0;
         $cursor = null;
+
+        $createdBy = $createdBy ?? (int) ($business->owner_id ?? 0);
+        if ($createdBy <= 0) {
+            $createdBy = 1;
+        }
+
+        $location = $this->resolveLocation($business);
+        $walkInCustomerId = $this->resolveWalkInCustomerId($business);
 
         do {
             $pages++;
@@ -122,6 +134,16 @@ class SquarePaymentsImportService
 
                 if ($record->wasRecentlyCreated) {
                     $imported++;
+                    $this->upsertPosPaymentForReport(
+                        business: $business,
+                        location: $location,
+                        contactId: $walkInCustomerId,
+                        createdBy: $createdBy,
+                        squarePaymentId: $paymentId,
+                        amount: $total,
+                        paidOn: $createdAt ?? now(),
+                        currency: $currency
+                    );
                 } else {
                     $skipped++;
                 }
@@ -140,5 +162,100 @@ class SquarePaymentsImportService
             'pages' => $pages,
             'message' => __('business.square_sync_done', ['imported' => $imported, 'skipped' => $skipped]),
         ];
+    }
+
+    private function resolveLocation(Business $business): BusinessLocation
+    {
+        $locId = (int) ($business->woocommerce_default_location_id ?? 0);
+        if ($locId > 0) {
+            $loc = BusinessLocation::where('business_id', $business->id)->where('id', $locId)->first();
+            if ($loc) {
+                return $loc;
+            }
+        }
+
+        return BusinessLocation::where('business_id', $business->id)->orderBy('id')->firstOrFail();
+    }
+
+    private function resolveWalkInCustomerId(Business $business): int
+    {
+        $contact = Contact::where('business_id', $business->id)
+            ->whereIn('type', ['customer', 'both'])
+            ->where('is_default', 1)
+            ->orderBy('id')
+            ->first();
+
+        if ($contact) {
+            return (int) $contact->id;
+        }
+
+        // Fallback: any customer.
+        $contact = Contact::where('business_id', $business->id)
+            ->whereIn('type', ['customer', 'both'])
+            ->orderBy('id')
+            ->first();
+
+        return $contact ? (int) $contact->id : 0;
+    }
+
+    /**
+     * Create minimal POS records so built-in Sell Payment Report can filter by method=square.
+     * This does NOT affect stock (no sell lines); it's purely for payment visibility/reporting.
+     */
+    private function upsertPosPaymentForReport(
+        Business $business,
+        BusinessLocation $location,
+        int $contactId,
+        int $createdBy,
+        string $squarePaymentId,
+        float $amount,
+        \DateTimeInterface $paidOn,
+        string $currency
+    ): void {
+        if ($contactId <= 0 || $amount <= 0) {
+            return;
+        }
+
+        $ref = 'SQ-'.$squarePaymentId;
+
+        $existing = TransactionPayment::where('business_id', $business->id)
+            ->where('payment_ref_no', $ref)
+            ->first();
+
+        if ($existing) {
+            return;
+        }
+
+        $tx = Transaction::create([
+            'business_id' => $business->id,
+            'location_id' => $location->id,
+            'type' => 'sell',
+            'status' => 'final',
+            'payment_status' => 'paid',
+            'contact_id' => $contactId,
+            'invoice_no' => $ref,
+            'ref_no' => $ref,
+            'source' => 'square_api',
+            'total_before_tax' => $amount,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'final_total' => $amount,
+            'transaction_date' => Carbon::instance($paidOn)->toDateTimeString(),
+            'created_by' => $createdBy,
+            'additional_notes' => 'Imported from Square API',
+            'is_created_from_api' => 1,
+        ]);
+
+        TransactionPayment::create([
+            'transaction_id' => $tx->id,
+            'business_id' => $business->id,
+            'amount' => $amount,
+            'method' => 'square',
+            'paid_on' => Carbon::instance($paidOn)->toDateTimeString(),
+            'created_by' => $createdBy,
+            'payment_ref_no' => $ref,
+            'transaction_no' => $squarePaymentId,
+            'note' => 'Square API import',
+        ]);
     }
 }

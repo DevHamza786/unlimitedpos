@@ -759,7 +759,7 @@ class BusinessController extends Controller
         }
 
         $days = max(1, min(90, (int) $request->input('days', 7)));
-        $result = $importService->syncRecentPayments($business, $days);
+        $result = $importService->syncRecentPayments($business, $days, 15, (int) $request->session()->get('user.id'));
 
         return response()->json([
             'success' => $result['success'] ? 1 : 0,
