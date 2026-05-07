@@ -132,18 +132,21 @@ class SquarePaymentsImportService
                     ]
                 );
 
+                // Always ensure a POS payment record exists (for reports),
+                // even when the inbound sync row already exists.
+                $this->upsertPosPaymentForReport(
+                    business: $business,
+                    location: $location,
+                    contactId: $walkInCustomerId,
+                    createdBy: $createdBy,
+                    squarePaymentId: $paymentId,
+                    amount: $total,
+                    paidOn: $createdAt ?? now(),
+                    currency: $currency
+                );
+
                 if ($record->wasRecentlyCreated) {
                     $imported++;
-                    $this->upsertPosPaymentForReport(
-                        business: $business,
-                        location: $location,
-                        contactId: $walkInCustomerId,
-                        createdBy: $createdBy,
-                        squarePaymentId: $paymentId,
-                        amount: $total,
-                        paidOn: $createdAt ?? now(),
-                        currency: $currency
-                    );
                 } else {
                     $skipped++;
                 }
