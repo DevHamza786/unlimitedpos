@@ -25,6 +25,20 @@
         background: #fff !important;
     }
 
+    /* Receipt root only (printThis iframe body is usually just this section) */
+    body > .invoice,
+    body > section.invoice,
+    section.invoice,
+    #receipt_section {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     .wrapper,
     .content-wrapper,
     .main-header,

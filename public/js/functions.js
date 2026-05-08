@@ -382,41 +382,82 @@ function __sum_stock(table, class_name, label_direction = 'right') {
     return stock_html;
 }
 
-function __print_receipt(section_id = null) {
-    if (section_id) {
-        var imgs = document.getElementById(section_id).getElementsByTagName("img");
-    } else {
-        var imgs = document.images;
+/**
+ * URL for invoice-print.css (same cache-busting query as app.css when possible).
+ */
+function __getInvoicePrintStylesheetHref() {
+    var link = document.querySelector('link[href*="css/app.css"]');
+    if (link && link.href) {
+        return link.href.replace(/app\.css/, 'invoice-print.css');
     }
-    
-    img_len = imgs.length;
-    if (img_len) {
-        img_counter = 0;
-
-        [].forEach.call( imgs, function( img ) {
-            img.addEventListener( 'load', incrementImageCounter, false );
-        } );
-    } else {
-        setTimeout(function() {
-            window.print();
-
-            // setTimeout(function() {
-            //     $('#receipt_section').html('');
-            // }, 5000);
-            
-        }, 1000);
+    if (typeof base_path !== 'undefined' && base_path) {
+        var b = base_path.replace(/\/?$/, '/');
+        return b + 'css/invoice-print.css';
     }
+    return '/css/invoice-print.css';
 }
 
-function incrementImageCounter() {
-    img_counter++;
-    if ( img_counter === img_len ) {
+/**
+ * Print only the receipt block (not the whole POS page) so PDF/paper height follows content.
+ * Uses printThis when available; falls back to window.print().
+ */
+function __print_receipt(section_id) {
+    var sid = section_id || 'receipt_section';
+    var el = document.getElementById(sid);
+    if (!el) {
         window.print();
-        
-        // setTimeout(function() {
-        //     $('#receipt_section').html('');
-        // }, 5000);
+        return;
     }
+
+    var runPrint = function () {
+        if (typeof jQuery !== 'undefined' && typeof jQuery.fn.printThis === 'function') {
+            var loadCss = __getInvoicePrintStylesheetHref();
+            jQuery('#' + sid).printThis({
+                importCSS: true,
+                importStyle: true,
+                loadCSS: loadCss,
+                printDelay: 800,
+                copyTagClasses: false,
+                copyTagStyles: false,
+            });
+        } else {
+            window.print();
+        }
+    };
+
+    var imgs = el.getElementsByTagName('img');
+    if (!imgs.length) {
+        runPrint();
+        return;
+    }
+
+    var pending = 0;
+    [].forEach.call(imgs, function (img) {
+        if (!img.complete) {
+            pending++;
+        }
+    });
+
+    if (pending === 0) {
+        runPrint();
+        return;
+    }
+
+    [].forEach.call(imgs, function (img) {
+        if (img.complete) {
+            return;
+        }
+        var done = function () {
+            img.removeEventListener('load', done);
+            img.removeEventListener('error', done);
+            pending--;
+            if (pending <= 0) {
+                runPrint();
+            }
+        };
+        img.addEventListener('load', done);
+        img.addEventListener('error', done);
+    });
 }
 
 function __getUnitMultiplier(row){
