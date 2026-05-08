@@ -25,8 +25,7 @@
 			</div>
 			<div class="col-sm-2">
 				<div class="form-group">
-					{!! Form::label('default_label_qty', __('barcode.no_of_labels') . ':') !!}
-					{!! Form::number('default_label_qty', 1, ['class' => 'form-control', 'id' => 'default_label_qty', 'min' => 1]); !!}
+					{!! Form::number('default_label_qty', null, ['class' => 'form-control', 'id' => 'default_label_qty', 'min' => 1, 'placeholder' => __('barcode.no_of_labels')]); !!}
 				</div>
 			</div>
 			<div class="col-sm-5">
