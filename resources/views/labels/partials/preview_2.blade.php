@@ -32,7 +32,7 @@
 
 					{{-- Variation --}}
 					@if(!empty($print['variations']) && $page_product->is_dummy != 1)
-						<span style="display: block !important; font-size: {{$print['variations_size']}}px; line-height: 1; margin: 10px 0; padding: 0;">
+						<span style="display: block !important; font-size: {{$print['variations_size']}}px; line-height: 1; margin-bottom: 10px; padding: 0;">
 							{{$page_product->product_variation_name}}:<b>{{$page_product->variation_name}}</b>
 						</span>
 					@endif
