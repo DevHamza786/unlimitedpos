@@ -151,6 +151,8 @@ $(document).ready(function() {
     });
 
     set_default_customer();
+    // Ensure hidden location_id is populated from location dropdown on initial load.
+    set_location();
 
     if ($('#search_product').length) {
         //Add Product
