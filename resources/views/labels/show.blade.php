@@ -24,7 +24,7 @@
 						<span class="input-group-addon">
 							<i class="fa fa-search"></i>
 						</span>
-						{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product_for_label', 'placeholder' => __('lang_v1.enter_product_name_to_print_labels'), 'autofocus']); !!}
+						{!! Form::select('search_product', [], null, ['class' => 'form-control select2', 'id' => 'search_product_for_label', 'style' => 'width: 100%;', 'data-placeholder' => __('lang_v1.enter_product_name_to_print_labels')]); !!}
 					</div>
 				</div>
 			</div>

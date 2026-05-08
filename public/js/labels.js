@@ -6,31 +6,38 @@ $(document).ready(function() {
     });
     //Add products
     if ($('#search_product_for_label').length > 0) {
+        // Use Select2 (more reliable than jquery-ui autocomplete across pages)
         $('#search_product_for_label')
-            .autocomplete({
-                source: '/purchases/get_products?check_enable_stock=false',
-                minLength: 2,
-                response: function(event, ui) {
-                    if (ui.content.length == 1) {
-                        ui.item = ui.content[0];
-                        $(this)
-                            .data('ui-autocomplete')
-                            ._trigger('select', 'autocompleteselect', ui);
-                        $(this).autocomplete('close');
-                    } else if (ui.content.length == 0) {
-                        swal(LANG.no_products_found);
-                    }
+            .select2({
+                placeholder: $('#search_product_for_label').data('placeholder') || '',
+                ajax: {
+                    url: '/purchases/get_products',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return {
+                            term: params.term,
+                            check_enable_stock: false,
+                        };
+                    },
+                    processResults: function(data) {
+                        // Endpoint already returns [{id, text, product_id, variation_id}, ...]
+                        return { results: data };
+                    },
+                    cache: true,
                 },
-                select: function(event, ui) {
-                    $(this).val(null);
-                    get_label_product_row(ui.item.product_id, ui.item.variation_id);
-                },
+                minimumInputLength: 2,
+                width: 'resolve',
             })
-            .autocomplete('instance')._renderItem = function(ul, item) {
-            return $('<li>')
-                .append('<div>' + item.text + '</div>')
-                .appendTo(ul);
-        };
+            .on('select2:select', function(e) {
+                var item = e.params.data;
+                // Reset dropdown
+                $('#search_product_for_label').val(null).trigger('change');
+
+                if (item && item.product_id) {
+                    get_label_product_row(item.product_id, item.variation_id);
+                }
+            });
     }
 
     $('input#is_show_price').change(function() {
