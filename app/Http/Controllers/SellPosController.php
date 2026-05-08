@@ -1745,6 +1745,11 @@ class SellPosController extends Controller
             }
         }
 
+        // Snap unit prices to business decimal precision (reduces float drift after %-adjustments / group prices).
+        $currency_precision = (int) ($business_details->currency_precision ?? session('business.currency_precision', 2));
+        $product->default_sell_price = round((float) $product->default_sell_price, $currency_precision);
+        $product->sell_price_inc_tax = round((float) $product->sell_price_inc_tax, $currency_precision);
+
         $warranties = $this->__getwarranties();
 
         $output['success'] = true;
