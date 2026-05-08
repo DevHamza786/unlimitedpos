@@ -32,7 +32,7 @@
 
 					{{-- Variation --}}
 					@if(!empty($print['variations']) && $page_product->is_dummy != 1)
-						<span style="display: block !important; font-size: {{$print['variations_size']}}px">
+						<span style="display: block !important; font-size: {{$print['variations_size']}}px; line-height: 1; margin: 0; padding: 0;">
 							{{$page_product->product_variation_name}}:<b>{{$page_product->variation_name}}</b>
 						</span>
 					@endif
@@ -53,11 +53,10 @@
 							</span>
 						@endif
 					@endforeach
-					<br>
 
 					{{-- Price --}}
 					@if(!empty($print['price']))
-					<span style="font-size: {{$print['price_size']}}px;">
+					<span style="display: block !important; font-size: {{$print['price_size']}}px; line-height: 1; margin: 0; padding: 0;">
 						@lang('lang_v1.price'):
 						<b>{{session('currency')['symbol'] ?? ''}}
 
