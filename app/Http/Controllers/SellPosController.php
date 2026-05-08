@@ -210,6 +210,9 @@ class SellPosController extends Controller
         //Shortcuts
         $shortcuts = json_decode($business_details->keyboard_shortcuts, true);
         $pos_settings = empty($business_details->pos_settings) ? $this->businessUtil->defaultPosSettings() : json_decode($business_details->pos_settings, true);
+        // Ensure product suggestion panel is available on POS screen.
+        // Some deployments accidentally persist this as enabled which hides the entire product grid.
+        $pos_settings['hide_product_suggestion'] = 0;
 
         $commsn_agnt_setting = $business_details->sales_cmsn_agnt;
         $commission_agent = [];
