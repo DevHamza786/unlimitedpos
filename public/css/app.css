@@ -685,6 +685,25 @@ tr.details td.details-control {
     display: none;
 }
 @media print{
+    /* Shorter slip/PDF: page follows content instead of a full blank sheet */
+    @page {
+        size: auto;
+        margin: 8mm;
+    }
+    html {
+        height: fit-content !important;
+        min-height: 0 !important;
+    }
+    html,
+    body {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .wrapper {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
     .print_section{
         display: inline !important;
     }

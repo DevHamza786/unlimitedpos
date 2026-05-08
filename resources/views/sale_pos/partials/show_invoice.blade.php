@@ -2,6 +2,58 @@
 @section('title', $title)
 @section('content')
 
+<style>
+/* Full-page print (Ctrl+P): hide chrome and avoid a tall empty sheet */
+@media print {
+    @page {
+        size: auto;
+        margin: 8mm;
+    }
+    html {
+        height: fit-content !important;
+        min-height: 0 !important;
+    }
+    html,
+    body {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+    .guest-invoice-slip .no-print,
+    .guest-invoice-slip .spacer {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .guest-invoice-slip .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .guest-invoice-slip .row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    .guest-invoice-slip .col-md-8,
+    .guest-invoice-slip .col-md-offset-2,
+    .guest-invoice-slip .col-sm-12,
+    .guest-invoice-slip .col-md-12 {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        float: none !important;
+    }
+}
+</style>
+
+<div class="guest-invoice-slip">
 <div class="container">
     <div class="spacer"></div>
     <div class="row">
@@ -30,17 +82,33 @@
     </div>
     <div class="spacer"></div>
 </div>
+</div>
 @stop
 @section('javascript')
 <script type="text/javascript">
     $(document).ready(function(){
+        var invoicePrintCss = "{{ asset('css/invoice-print.css') }}?v={{ $asset_v }}";
         $(document).on('click', '#print_invoice', function(){
-            $('#invoice_content').printThis();
+            $('#invoice_content').printThis({
+                importCSS: true,
+                importStyle: true,
+                loadCSS: invoicePrintCss,
+                printDelay: 500,
+                copyTagClasses: false,
+                copyTagStyles: false
+            });
         });
     });
     @if(!empty(request()->input('print_on_load')))
         $(window).on('load', function(){
-            $('#invoice_content').printThis();
+            $('#invoice_content').printThis({
+                importCSS: true,
+                importStyle: true,
+                loadCSS: "{{ asset('css/invoice-print.css') }}?v={{ $asset_v }}",
+                printDelay: 500,
+                copyTagClasses: false,
+                copyTagStyles: false
+            });
         });
     @endif
 </script>

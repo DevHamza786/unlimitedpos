@@ -1,0 +1,35 @@
+/**
+ * Invoice / receipt browser print: prefer page height that follows content
+ * instead of a tall blank area on PDF or paper.
+ * Loaded last by printThis (POS/guest invoice) so it overrides imported framework CSS.
+ */
+@media print {
+    @page {
+        size: auto;
+        margin: 8mm;
+    }
+
+    html {
+        height: fit-content !important;
+        min-height: 0 !important;
+    }
+
+    html,
+    body {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    .wrapper,
+    .content-wrapper,
+    .main-header,
+    .main-sidebar {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+}
