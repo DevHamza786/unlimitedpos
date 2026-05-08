@@ -1,4 +1,7 @@
 @foreach($featured_products as $variation)
+	@if(!empty($variation->product) && !empty($variation->product->enable_stock) && (float)($variation->qty_available ?? 0) <= 0)
+		@continue
+	@endif
 	<div class="col-md-3 col-xs-4 product_list no-print">
 		<div class="product_box" data-toggle="tooltip" data-placement="bottom" data-variation_id="{{$variation->id}}" title="{{$variation->full_name}}">
 

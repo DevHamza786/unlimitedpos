@@ -129,7 +129,7 @@ class BusinessLocation extends Model
                                             ->orWhere('vld.qty_available', '>', 0);
                                     })
                                     ->with(['product_variation', 'product', 'media'])
-                                    ->select('variations.*');
+                                    ->select('variations.*', 'vld.qty_available as qty_available');
 
         if ($check_location) {
             $query->where('pl.location_id', $this->id);

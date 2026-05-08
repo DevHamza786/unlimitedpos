@@ -1,4 +1,19 @@
-@forelse($products as $product)
+@php
+	$products_to_show = $products;
+	if (!empty($products) && method_exists($products, 'filter')) {
+		$products_to_show = $products->filter(function ($product) {
+			if (!empty($product->enable_stock)) {
+				$qty = $product->qty_available ?? null;
+				if (is_null($qty) || (float) $qty <= 0) {
+					return false;
+				}
+			}
+			return true;
+		});
+	}
+@endphp
+
+@forelse($products_to_show as $product)
 	<div class="col-md-3 col-xs-4 product_list no-print">
 		<div class="product_box" data-variation_id="{{$product->id}}" title="{{$product->name}} @if($product->type == 'variable')- {{$product->variation}} @endif {{ '(' . $product->sub_sku . ')'}} @if(!empty($show_prices)) @lang('lang_v1.default') - @format_currency($product->selling_price) @foreach($product->group_prices as $group_price) @if(array_key_exists($group_price->price_group_id, $allowed_group_prices)) {{$allowed_group_prices[$group_price->price_group_id]}} - @format_currency($group_price->price_inc_tax) @endif @endforeach @endif">
 
