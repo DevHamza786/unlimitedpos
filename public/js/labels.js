@@ -1,4 +1,12 @@
 $(document).ready(function() {
+    function apply_default_label_qty_to_all_rows() {
+        var qty = parseInt($('#default_label_qty').val(), 10);
+        if (isNaN(qty) || qty <= 0) {
+            return;
+        }
+        $('table#product_table tbody').find('input[type="number"][name$="[quantity]"]').val(qty);
+    }
+
     $('table#product_table tbody').find('.label-date-picker').each( function(){
         $(this).datepicker({
             autoclose: true
@@ -52,6 +60,10 @@ $(document).ready(function() {
     $(document).on('change', '#brand_id_for_label', function() {
         // Clear current selection and force reload with brand filter.
         $('#search_product_for_label').val(null).trigger('change');
+    });
+
+    $(document).on('input change', '#default_label_qty', function() {
+        apply_default_label_qty_to_all_rows();
     });
 
     $('input#is_show_price').change(function() {
@@ -111,6 +123,17 @@ function get_label_product_row(product_id, variation_id) {
                         autoclose: true
                     });
                 });
+
+                // Apply default qty to newly added rows too.
+                if ($('#default_label_qty').length) {
+                    var qty = parseInt($('#default_label_qty').val(), 10);
+                    if (!isNaN(qty) && qty > 0) {
+                        $('table#product_table tbody')
+                            .find('input[type="number"][name$="[quantity]"]')
+                            .last()
+                            .val(qty);
+                    }
+                }
             },
         });
     }

@@ -23,6 +23,12 @@
 					{!! Form::select('brand_id_for_label', $brands ?? [], null, ['class' => 'form-control select2', 'id' => 'brand_id_for_label', 'style' => 'width: 100%;']); !!}
 				</div>
 			</div>
+			<div class="col-sm-2">
+				<div class="form-group">
+					{!! Form::label('default_label_qty', __('barcode.no_of_labels') . ':') !!}
+					{!! Form::number('default_label_qty', 1, ['class' => 'form-control', 'id' => 'default_label_qty', 'min' => 1]); !!}
+				</div>
+			</div>
 			<div class="col-sm-5">
 				<div class="form-group">
 					<div class="input-group">
