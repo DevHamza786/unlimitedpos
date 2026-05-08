@@ -119,7 +119,15 @@ class BusinessLocation extends Model
         $query = Variation::whereIn('variations.id', $this->featured_products)
                                     ->join('product_locations as pl', 'pl.product_id', '=', 'variations.product_id')
                                     ->join('products as p', 'p.id', '=', 'variations.product_id')
+                                    ->leftJoin('variation_location_details as vld', function ($join) {
+                                        $join->on('variations.id', '=', 'vld.variation_id')
+                                            ->where('vld.location_id', '=', $this->id);
+                                    })
                                     ->where('p.not_for_selling', 0)
+                                    ->where(function ($q) {
+                                        $q->where('p.enable_stock', 0)
+                                            ->orWhere('vld.qty_available', '>', 0);
+                                    })
                                     ->with(['product_variation', 'product', 'media'])
                                     ->select('variations.*');
 

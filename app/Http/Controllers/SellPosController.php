@@ -1687,7 +1687,9 @@ class SellPosController extends Controller
         $is_draft = request()->has('is_draft') && request()->input('is_draft') == 'true' ? true : false;
 
         if ($is_sales_order || ! empty($so_line) || $is_draft) {
-            $check_qty = false;
+            // Hide out-of-stock products in POS product grid.
+            // Only applies to stock-managed products.
+            $check_qty = true;
         }
 
         if (request()->input('disable_qty_alert') === 'true') {
@@ -2046,9 +2048,12 @@ class SellPosController extends Controller
                 });
             }
 
-            //Include check for quantity
+            //Include check for quantity (but do not hide non-stock-managed products)
             if ($check_qty) {
-                $products->where('VLD.qty_available', '>', 0);
+                $products->where(function ($q) {
+                    $q->where('p.enable_stock', 0)
+                        ->orWhere('VLD.qty_available', '>', 0);
+                });
             }
 
             if (! empty($category_id) && ($category_id != 'all')) {
