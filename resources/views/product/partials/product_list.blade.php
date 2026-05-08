@@ -20,7 +20,7 @@
                 @php 
                     $colspan++;
                 @endphp
-                <th>@lang('lang_v1.selling_price')</th>
+                <th>@lang('lang_v1.selling_price') @show_tooltip(__('lang_v1.product_list_selling_price_tooltip'))</th>
             @endcan
             <th>@lang('report.current_stock')</th>
             <th>@lang('product.product_type')</th>

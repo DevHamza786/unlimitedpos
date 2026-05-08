@@ -814,6 +814,7 @@ return [
     'show_tos_custom_fields' => 'Show types of service custom fields',
     'types_of_service_module_settings' => 'Types of service module settings',
     'product_business_location_tooltip' => 'Product will be available only in this business locations',
+    'product_list_selling_price_tooltip' => 'Shows catalog selling prices from product and variation settings (including tax). POS may show a different unit price when the selected customer has a customer group markup or discount, when a selling price group is chosen on POS, or when an automatic product discount applies.',
     'product_not_assigned_to_any_location' => 'Product not assigned to any locations',
     'packed' => 'Packed',
     'shipped' => 'Shipped',
