@@ -20,7 +20,6 @@
 		<div class="row">
 			<div class="col-sm-3 col-sm-offset-2">
 				<div class="form-group">
-					{!! Form::label('brand_id_for_label', __('product.brand') . ':') !!}
 					{!! Form::select('brand_id_for_label', $brands ?? [], null, ['class' => 'form-control select2', 'id' => 'brand_id_for_label', 'style' => 'width: 100%;']); !!}
 				</div>
 			</div>
@@ -30,7 +29,7 @@
 						<span class="input-group-addon">
 							<i class="fa fa-search"></i>
 						</span>
-						{!! Form::select('search_product', [], null, ['class' => 'form-control select2', 'id' => 'search_product_for_label', 'style' => 'width: 100%;', 'data-placeholder' => __('lang_v1.enter_product_name_to_print_labels')]); !!}
+						{!! Form::select('search_product[]', [], null, ['class' => 'form-control select2', 'id' => 'search_product_for_label', 'style' => 'width: 100%;', 'data-placeholder' => __('lang_v1.enter_product_name_to_print_labels'), 'multiple' => 'multiple']); !!}
 					</div>
 				</div>
 			</div>

@@ -10,6 +10,7 @@ $(document).ready(function() {
         $('#search_product_for_label')
             .select2({
                 placeholder: $('#search_product_for_label').data('placeholder') || '',
+                closeOnSelect: false,
                 ajax: {
                     url: '/purchases/get_products',
                     dataType: 'json',
@@ -33,12 +34,18 @@ $(document).ready(function() {
             })
             .on('select2:select', function(e) {
                 var item = e.params.data;
-                // Reset dropdown
-                $('#search_product_for_label').val(null).trigger('change');
-
                 if (item && item.product_id) {
                     get_label_product_row(item.product_id, item.variation_id);
                 }
+
+                // Remove selected item from selection so user can keep picking quickly.
+                var $el = $('#search_product_for_label');
+                var vals = $el.val() || [];
+                var next = vals.filter(function(v) {
+                    return String(v) !== String(item.id);
+                });
+                $el.val(next).trigger('change.select2');
+                $el.select2('open');
             });
     }
 
