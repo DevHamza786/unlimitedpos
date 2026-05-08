@@ -1,4 +1,4 @@
-<div class="modal" id="woocommerce_import_modal" tabindex="-1" role="dialog" data-backdrop="static">
+<div class="modal fade" id="woocommerce_import_modal" tabindex="-1" role="dialog" data-backdrop="false" data-keyboard="false">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">

@@ -291,7 +291,7 @@
             // Remove any stale backdrop before opening modal
             $('.modal-backdrop').remove();
             $('body').removeClass('modal-open').css('padding-right', '');
-            $('#woocommerce_import_modal').modal('show');
+            $('#woocommerce_import_modal').modal({ backdrop: false, keyboard: false });
             loadWooCommerceProducts();
         });
 

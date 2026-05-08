@@ -788,6 +788,14 @@ tr.details td.details-control {
     margin-left: auto !important;
     margin-right: auto !important;
 }
+
+/* Ensure Bootstrap modal stays above backdrop (fix for stuck overlay). */
+.modal-backdrop {
+    z-index: 1040 !important;
+}
+.modal {
+    z-index: 1050 !important;
+}
 table.ajax_view tbody tr{
     cursor: pointer;
 }
