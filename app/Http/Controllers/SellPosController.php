@@ -1687,9 +1687,9 @@ class SellPosController extends Controller
         $is_draft = request()->has('is_draft') && request()->input('is_draft') == 'true' ? true : false;
 
         if ($is_sales_order || ! empty($so_line) || $is_draft) {
-            // Hide out-of-stock products in POS product grid.
-            // Only applies to stock-managed products.
-            $check_qty = true;
+            // Don't block adding items for sales orders / drafts.
+            // Stock validation happens at finalization (if needed).
+            $check_qty = false;
         }
 
         if (request()->input('disable_qty_alert') === 'true') {
