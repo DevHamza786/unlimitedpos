@@ -288,6 +288,9 @@
 
         // WooCommerce product import
         $('#import_woocommerce_products_btn').click(function() {
+            // Remove any stale backdrop before opening modal
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open').css('padding-right', '');
             $('#woocommerce_import_modal').modal('show');
             loadWooCommerceProducts();
         });
@@ -295,7 +298,10 @@
         // Clean up modal backdrop on hidden
         $('#woocommerce_import_modal').on('hidden.bs.modal', function() {
             $('.modal-backdrop').remove();
-            $('body').removeClass('modal-open');
+            $('body').removeClass('modal-open').css('padding-right', '');
+        }).on('shown.bs.modal', function() {
+            // Ensure only one backdrop exists
+            $('.modal-backdrop').not(':last').remove();
         });
 
         function loadWooCommerceProducts(page = 1) {

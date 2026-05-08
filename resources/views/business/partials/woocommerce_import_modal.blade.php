@@ -48,11 +48,14 @@
 </div>
 
 <script>
+function __wooImportCleanupModalArtifacts() {
+    // Bootstrap sometimes leaves a stale backdrop which blocks the UI.
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css('padding-right', '');
+}
+
 function closeWooImportModal() {
     $('#woocommerce_import_modal').modal('hide');
-    setTimeout(function() {
-        $('.modal-backdrop').remove();
-        $('body').removeClass('modal-open');
-    }, 200);
+    setTimeout(__wooImportCleanupModalArtifacts, 0);
 }
 </script>
