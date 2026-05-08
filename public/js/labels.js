@@ -18,6 +18,7 @@ $(document).ready(function() {
                         return {
                             term: params.term,
                             check_enable_stock: false,
+                            show_all: true,
                         };
                     },
                     processResults: function(data) {
@@ -26,7 +27,7 @@ $(document).ready(function() {
                     },
                     cache: true,
                 },
-                minimumInputLength: 2,
+                minimumInputLength: 0,
                 width: 'resolve',
             })
             .on('select2:select', function(e) {

@@ -925,6 +925,10 @@ class PurchaseController extends Controller
     {
         if (request()->ajax()) {
             $term = request()->term;
+            $show_all = false;
+            if (isset(request()->show_all)) {
+                $show_all = filter_var(request()->show_all, FILTER_VALIDATE_BOOLEAN);
+            }
 
             $check_enable_stock = true;
             if (isset(request()->check_enable_stock)) {
@@ -937,7 +941,9 @@ class PurchaseController extends Controller
             }
 
             if (empty($term)) {
-                return json_encode([]);
+                if (! $show_all) {
+                    return json_encode([]);
+                }
             }
 
             $business_id = request()->session()->get('user.business_id');
@@ -947,10 +953,12 @@ class PurchaseController extends Controller
                 '=',
                 'variations.product_id'
             )
-                ->where(function ($query) use ($term) {
-                    $query->where('products.name', 'like', '%'.$term.'%');
-                    $query->orWhere('sku', 'like', '%'.$term.'%');
-                    $query->orWhere('sub_sku', 'like', '%'.$term.'%');
+                ->when(! empty($term), function ($query) use ($term) {
+                    $query->where(function ($q) use ($term) {
+                        $q->where('products.name', 'like', '%'.$term.'%')
+                          ->orWhere('sku', 'like', '%'.$term.'%')
+                          ->orWhere('sub_sku', 'like', '%'.$term.'%');
+                    });
                 })
                 ->active()
                 ->where('business_id', $business_id)
@@ -971,6 +979,9 @@ class PurchaseController extends Controller
             }
             if (! empty(request()->location_id)) {
                 $q->ForLocation(request()->location_id);
+            }
+            if ($show_all && empty($term)) {
+                $q->orderBy('products.name', 'asc')->limit(50);
             }
             $products = $q->get();
 
