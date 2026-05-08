@@ -18,7 +18,13 @@
 	{!! Form::open(['url' => '#', 'method' => 'post', 'id' => 'preview_setting_form', 'onsubmit' => 'return false']) !!}
 	@component('components.widget', ['class' => 'box-primary', 'title' => __('product.add_product_for_labels')])
 		<div class="row">
-			<div class="col-sm-8 col-sm-offset-2">
+			<div class="col-sm-3 col-sm-offset-2">
+				<div class="form-group">
+					{!! Form::label('brand_id_for_label', __('product.brand') . ':') !!}
+					{!! Form::select('brand_id_for_label', $brands ?? [], null, ['class' => 'form-control select2', 'id' => 'brand_id_for_label', 'style' => 'width: 100%;']); !!}
+				</div>
+			</div>
+			<div class="col-sm-5">
 				<div class="form-group">
 					<div class="input-group">
 						<span class="input-group-addon">

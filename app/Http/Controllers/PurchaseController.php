@@ -980,6 +980,9 @@ class PurchaseController extends Controller
             if (! empty(request()->location_id)) {
                 $q->ForLocation(request()->location_id);
             }
+            if (! empty(request()->brand_id)) {
+                $q->where('products.brand_id', request()->brand_id);
+            }
             if ($show_all && empty($term)) {
                 $q->orderBy('products.name', 'asc')->limit(50);
             }

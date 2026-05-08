@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Barcode;
+use App\Brands;
 use App\Product;
 use App\SellingPriceGroup;
 use App\Utils\ProductUtil;
@@ -51,6 +52,8 @@ class LabelsController extends Controller
             $products = $this->productUtil->getDetailsFromProduct($business_id, $product_id);
         }
 
+        $brands = Brands::forDropdown($business_id, true);
+
         //get price groups
         $price_groups = [];
         if (! empty($purchase_id) || ! empty($product_id)) {
@@ -67,7 +70,7 @@ class LabelsController extends Controller
         $barcode_settings = $barcode_settings->pluck('name', 'id');
 
         return view('labels.show')
-            ->with(compact('products', 'barcode_settings', 'default', 'price_groups'));
+            ->with(compact('products', 'barcode_settings', 'default', 'price_groups', 'brands'));
     }
 
     /**
@@ -80,6 +83,10 @@ class LabelsController extends Controller
         if ($request->ajax()) {
             $product_id = $request->input('product_id');
             $variation_id = $request->input('variation_id');
+            // If variation_id is 0 (group selection), load all variations for the product.
+            if ($variation_id === 0 || $variation_id === '0' || empty($variation_id)) {
+                $variation_id = null;
+            }
             $business_id = $request->session()->get('user.business_id');
 
             if (! empty($product_id)) {

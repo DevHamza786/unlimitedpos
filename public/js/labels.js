@@ -19,6 +19,7 @@ $(document).ready(function() {
                             term: params.term,
                             check_enable_stock: false,
                             show_all: true,
+                            brand_id: $('#brand_id_for_label').val(),
                         };
                     },
                     processResults: function(data) {
@@ -40,6 +41,11 @@ $(document).ready(function() {
                 }
             });
     }
+
+    $(document).on('change', '#brand_id_for_label', function() {
+        // Clear current selection and force reload with brand filter.
+        $('#search_product_for_label').val(null).trigger('change');
+    });
 
     $('input#is_show_price').change(function() {
         if ($(this).is(':checked')) {
