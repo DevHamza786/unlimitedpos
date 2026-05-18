@@ -326,6 +326,7 @@ class WooCommerceProductImportService
                 'name' => $varName,
                 'sub_sku' => $varSku,
                 'sell_price_inc_tax' => $varPrice,
+                'woocommerce_variation_id' => ! empty($wooVar['id']) ? (int) $wooVar['id'] : null,
             ]);
 
             if ($product->enable_stock) {

@@ -106,9 +106,6 @@ class WooCommerceOrderImportService
             }
 
             [$product, $variation] = $resolved;
-            if ($product->type !== 'single') {
-                continue;
-            }
 
             $lineTotal = (float) ($line['total'] ?? 0) + (float) ($line['total_tax'] ?? 0);
             $unitInc = $qty > 0 ? $lineTotal / $qty : (float) $variation->sell_price_inc_tax;
@@ -306,19 +303,6 @@ class WooCommerceOrderImportService
         $wcVariationId = (int) ($line['variation_id'] ?? 0);
         $sku = trim((string) ($line['sku'] ?? ''));
 
-        $product = Product::where('business_id', $businessId)
-            ->where('woocommerce_product_id', $wcProductId)
-            ->first();
-
-        if ($product !== null) {
-            $variation = $product->variations()->whereNull('deleted_at')->orderBy('id')->first();
-            if ($variation !== null) {
-                return [$product, $variation];
-            }
-
-            return null;
-        }
-
         if ($wcVariationId > 0) {
             $variation = Variation::where('woocommerce_variation_id', $wcVariationId)
                 ->whereHas('product', function ($q) use ($businessId) {
@@ -343,7 +327,35 @@ class WooCommerceOrderImportService
             }
         }
 
-        return null;
+        $product = Product::where('business_id', $businessId)
+            ->where('woocommerce_product_id', $wcProductId)
+            ->first();
+
+        if ($product === null) {
+            return null;
+        }
+
+        $variationQuery = $product->variations()->whereNull('deleted_at');
+
+        if ($wcVariationId > 0) {
+            $byWooVariation = (clone $variationQuery)
+                ->where('woocommerce_variation_id', $wcVariationId)
+                ->first();
+            if ($byWooVariation !== null) {
+                return [$product, $byWooVariation];
+            }
+        }
+
+        if ($sku !== '') {
+            $bySku = (clone $variationQuery)->where('sub_sku', $sku)->first();
+            if ($bySku !== null) {
+                return [$product, $bySku];
+            }
+        }
+
+        $variation = $variationQuery->orderBy('id')->first();
+
+        return $variation !== null ? [$product, $variation] : null;
     }
 
     private function resolveContact(Business $business, array $order, int $ownerId): Contact
