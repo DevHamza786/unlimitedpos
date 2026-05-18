@@ -324,7 +324,7 @@
 
                         $.each(products, function(index, product) {
                             var type = product.type === 'variable' ? 'Variable' : 'Simple';
-                            var price = product.regular_price || '0';
+                            var price = product.display_price || product.price || product.regular_price || '0';
                             var sku = product.sku || '-';
                             var name = product.name || 'Untitled';
 

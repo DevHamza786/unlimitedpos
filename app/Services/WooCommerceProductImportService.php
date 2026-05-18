@@ -64,6 +64,10 @@ class WooCommerceProductImportService
             $total = (int) $response->header('X-WP-Total', count($products));
             $totalPages = (int) $response->header('X-WP-TotalPages', 1);
 
+            foreach ($products as $i => $product) {
+                $products[$i]['display_price'] = $this->resolveDisplayPrice($business, $product);
+            }
+
             return [
                 'success' => true,
                 'message' => '',
@@ -177,7 +181,7 @@ class WooCommerceProductImportService
         // Determine stock settings
         $enableStock = (bool) ($wooProduct['manage_stock'] ?? false);
         $stockQty = (int) ($wooProduct['stock_quantity'] ?? 0);
-        $price = (float) ($wooProduct['regular_price'] ?? 0);
+        $price = $this->extractWooPrice($wooProduct);
 
         // Create product
         $product = Product::create([
@@ -198,7 +202,7 @@ class WooCommerceProductImportService
         if ($type === 'single') {
             $this->createSingleVariation($product, $price, $stockQty, $enableStock);
         } else {
-            $this->createVariableVariations($product, $wooProduct);
+            $this->createVariableVariations($business, $product, $wooProduct);
         }
 
         $this->syncProductLocations($product);
@@ -228,7 +232,7 @@ class WooCommerceProductImportService
         if ($product->type === 'single') {
             $variation = $product->variations()->whereNull('deleted_at')->first();
             if ($variation) {
-                $price = (float) ($wooProduct['regular_price'] ?? 0);
+                $price = $this->extractWooPrice($wooProduct);
                 $variation->sell_price_inc_tax = $price;
                 $variation->save();
 
@@ -271,10 +275,14 @@ class WooCommerceProductImportService
         }
     }
 
-    private function createVariableVariations(Product $product, array $wooProduct): void
+    private function createVariableVariations(Business $business, Product $product, array $wooProduct): void
     {
-        $attributes = $wooProduct['attributes'] ?? [];
         $variations = $wooProduct['variations'] ?? [];
+
+        if ($this->variationsAreIds($variations)) {
+            $wooProductId = (int) ($wooProduct['id'] ?? $product->woocommerce_product_id);
+            $variations = $this->fetchProductVariations($business, $wooProductId);
+        }
 
         // If no variations in response, create a default one
         if (empty($variations)) {
@@ -297,10 +305,14 @@ class WooCommerceProductImportService
 
         // Create variations from WooCommerce data
         foreach ($variations as $idx => $wooVar) {
-            $varName = $wooVar['name'] ?? 'Variation '.($idx + 1);
-            $varPrice = (float) ($wooVar['price'] ?? $wooProduct['regular_price'] ?? 0);
+            if (! is_array($wooVar)) {
+                continue;
+            }
+
+            $varName = $this->buildVariationLabel($wooVar, $idx);
+            $varPrice = $this->extractWooPrice($wooVar);
             $varStock = (int) ($wooVar['stock_quantity'] ?? 0);
-            $varSku = $wooVar['sku'] ?? $product->sku.'-'.$idx;
+            $varSku = ! empty($wooVar['sku']) ? $wooVar['sku'] : $product->sku.'-'.$idx;
 
             $productVariation = ProductVariation::create([
                 'product_id' => $product->id,
@@ -537,5 +549,144 @@ class WooCommerceProductImportService
         $text = strip_tags($html, '<p><br><strong><em><ul><ol><li>');
 
         return trim($text);
+    }
+
+    /**
+     * WooCommerce variable parents often have empty regular_price; prices live on variations.
+     */
+    private function resolveDisplayPrice(Business $business, array $wooProduct): string
+    {
+        $type = $wooProduct['type'] ?? 'simple';
+        $parentPrice = $this->extractWooPrice($wooProduct);
+
+        if ($type !== 'variable') {
+            return $parentPrice > 0 ? number_format($parentPrice, 2, '.', '') : '0';
+        }
+
+        if ($parentPrice > 0) {
+            return number_format($parentPrice, 2, '.', '');
+        }
+
+        $variations = $wooProduct['variations'] ?? [];
+        if ($this->variationsAreIds($variations)) {
+            $variations = $this->fetchProductVariations($business, (int) ($wooProduct['id'] ?? 0));
+        }
+
+        $prices = [];
+        foreach ($variations as $variation) {
+            if (! is_array($variation)) {
+                continue;
+            }
+            $price = $this->extractWooPrice($variation);
+            if ($price > 0) {
+                $prices[] = $price;
+            }
+        }
+
+        if (empty($prices)) {
+            return '0';
+        }
+
+        $min = min($prices);
+        $max = max($prices);
+
+        if (abs($min - $max) < 0.001) {
+            return number_format($min, 2, '.', '');
+        }
+
+        return number_format($min, 2, '.', '').' - '.number_format($max, 2, '.', '');
+    }
+
+    private function extractWooPrice(array $item): float
+    {
+        foreach (['regular_price', 'price', 'sale_price'] as $key) {
+            $val = $item[$key] ?? '';
+            if ($val !== '' && $val !== null && is_numeric($val)) {
+                return (float) $val;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private function variationsAreIds(array $variations): bool
+    {
+        if (empty($variations)) {
+            return false;
+        }
+
+        $first = $variations[0];
+
+        return is_int($first) || (is_string($first) && ctype_digit($first));
+    }
+
+    private function buildVariationLabel(array $wooVar, int $index): string
+    {
+        $parts = [];
+        foreach ($wooVar['attributes'] ?? [] as $attr) {
+            if (! is_array($attr)) {
+                continue;
+            }
+            $option = trim((string) ($attr['option'] ?? ''));
+            if ($option !== '') {
+                $parts[] = $option;
+            }
+        }
+
+        if (! empty($parts)) {
+            return implode(' / ', $parts);
+        }
+
+        return $wooVar['name'] ?? 'Variation '.($index + 1);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchProductVariations(Business $business, int $productId): array
+    {
+        if ($productId <= 0) {
+            return [];
+        }
+
+        $base = rtrim((string) $business->woocommerce_store_url, '/');
+        $verify = (bool) config('constants.woocommerce_verify_ssl', true);
+        $all = [];
+        $page = 1;
+
+        try {
+            do {
+                $response = Http::withBasicAuth(
+                    $business->woocommerce_consumer_key,
+                    $business->woocommerce_consumer_secret
+                )
+                    ->withOptions(['verify' => $verify])
+                    ->acceptJson()
+                    ->timeout(self::API_TIMEOUT)
+                    ->get($base.'/wp-json/wc/v3/products/'.$productId.'/variations', [
+                        'page' => $page,
+                        'per_page' => 100,
+                    ]);
+
+                if (! $response->successful()) {
+                    break;
+                }
+
+                $batch = $response->json();
+                if (! is_array($batch) || empty($batch)) {
+                    break;
+                }
+
+                $all = array_merge($all, $batch);
+                $totalPages = (int) $response->header('X-WP-TotalPages', 1);
+                $page++;
+            } while ($page <= $totalPages);
+
+            return $all;
+        } catch (\Throwable $e) {
+            Log::warning('WooCommerce fetch variations: '.$e->getMessage());
+
+            return [];
+        }
     }
 }
