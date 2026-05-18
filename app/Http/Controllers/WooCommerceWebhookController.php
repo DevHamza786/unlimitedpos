@@ -48,6 +48,12 @@ class WooCommerceWebhookController extends Controller
             return response()->json(['status' => 'ignored', 'reason' => 'invalid_body']);
         }
 
+        Log::info('WooCommerce webhook received', [
+            'business_id' => $business->id,
+            'woocommerce_order_id' => (int) $order['id'],
+            'status' => $order['status'] ?? null,
+        ]);
+
         try {
             $result = $importService->importOrderFromPayload($business, $order);
 
