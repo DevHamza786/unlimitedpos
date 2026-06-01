@@ -38,6 +38,28 @@ class WooCommerceSyncProducts extends Command
         ini_set('max_execution_time', '0');
         ini_set('memory_limit', '512M');
 
+        // Prevent overlapping runs (cron may fire every 30s while a full
+        // sync still runs for minutes). A simple file lock works on cPanel.
+        $lockPath = storage_path('app/woocommerce_sync.lock');
+        $lockHandle = fopen($lockPath, 'c');
+        if ($lockHandle === false || ! flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            $this->info('Another WooCommerce sync is already running. Skipping.');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            $this->runSync();
+        } finally {
+            flock($lockHandle, LOCK_UN);
+            fclose($lockHandle);
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function runSync(): void
+    {
         $full = (bool) $this->option('full');
 
         $businesses = Business::all();
@@ -71,7 +93,5 @@ class WooCommerceSyncProducts extends Command
                 $this->error("Business #{$business->id}: ".$e->getMessage());
             }
         }
-
-        return self::SUCCESS;
     }
 }
