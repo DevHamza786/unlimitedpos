@@ -204,8 +204,7 @@ class CombinedPurchaseReturnController extends Controller
                         ->leftjoin('units', 'units.id', '=', 'p.unit_id')
                         ->where('purchase_lines.transaction_id', $id)
                         ->select(
-                            DB::raw("IF(pv.is_dummy = 0, CONCAT(p.name, 
-                                    ' (', pv.name, ':',variations.name, ')'), p.name) AS product_name"),
+                            DB::raw(\App\Utils\ProductUtil::variableProductNameSelectSql()),
                             'p.id as product_id',
                             'p.enable_stock',
                             'pv.is_dummy as is_dummy',

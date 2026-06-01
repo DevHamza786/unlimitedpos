@@ -938,7 +938,7 @@ class SellController extends Controller
                         ->where('transaction_sell_lines.transaction_id', $id)
                         ->with(['warranties', 'so_line'])
                         ->select(
-                            DB::raw("IF(pv.is_dummy = 0, CONCAT(p.name, ' (', pv.name, ':',variations.name, ')'), p.name) AS product_name"),
+                            DB::raw(\App\Utils\ProductUtil::variableProductNameSelectSql()),
                             'p.id as product_id',
                             'p.enable_stock',
                             'p.name as product_actual_name',

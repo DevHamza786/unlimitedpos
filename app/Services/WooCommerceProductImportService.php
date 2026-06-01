@@ -303,6 +303,20 @@ class WooCommerceProductImportService
             return;
         }
 
+        $attributeLabel = 'Variation';
+        foreach ($variations as $wooVar) {
+            if (is_array($wooVar)) {
+                $attributeLabel = $this->buildVariationAttributeLabel($wooVar);
+                break;
+            }
+        }
+
+        $productVariation = ProductVariation::create([
+            'product_id' => $product->id,
+            'name' => $attributeLabel,
+            'is_dummy' => 0,
+        ]);
+
         // Create variations from WooCommerce data
         foreach ($variations as $idx => $wooVar) {
             if (! is_array($wooVar)) {
@@ -313,12 +327,6 @@ class WooCommerceProductImportService
             $varPrice = $this->extractWooPrice($wooVar);
             $varStock = (int) ($wooVar['stock_quantity'] ?? 0);
             $varSku = ! empty($wooVar['sku']) ? $wooVar['sku'] : $product->sku.'-'.$idx;
-
-            $productVariation = ProductVariation::create([
-                'product_id' => $product->id,
-                'name' => $varName,
-                'is_dummy' => 0,
-            ]);
 
             $variation = Variation::create([
                 'product_id' => $product->id,
@@ -639,6 +647,29 @@ class WooCommerceProductImportService
         }
 
         return $wooVar['name'] ?? 'Variation '.($index + 1);
+    }
+
+    /**
+     * Attribute dimension label(s) for product_variations.name (e.g. Size / Colour).
+     */
+    private function buildVariationAttributeLabel(array $wooVar): string
+    {
+        $names = [];
+        foreach ($wooVar['attributes'] ?? [] as $attr) {
+            if (! is_array($attr)) {
+                continue;
+            }
+            $name = trim((string) ($attr['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        if (! empty($names)) {
+            return implode(' / ', $names);
+        }
+
+        return 'Variation';
     }
 
     /**

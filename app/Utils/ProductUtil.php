@@ -467,6 +467,21 @@ class ProductUtil extends Util
     }
 
     /**
+     * SQL expression for variable product display name (e.g. POS cart row).
+     * When product_variation and variation names match (common for WooCommerce imports),
+     * show the value once instead of "value:value".
+     */
+    public static function variableProductNameSelectSql(string $alias = 'product_name'): string
+    {
+        return "IF(pv.is_dummy = 0,
+            IF(pv.name = variations.name,
+                CONCAT(p.name, ' (', variations.name, ')'),
+                CONCAT(p.name, ' (', pv.name, ':', variations.name, ')')
+            ),
+            p.name) AS {$alias}";
+    }
+
+    /**
      * Get all details for a product from its variation id
      *
      * @param  int  $variation_id
@@ -506,8 +521,7 @@ class ProductUtil extends Util
         }
 
         $product = $query->select(
-            DB::raw("IF(pv.is_dummy = 0, CONCAT(p.name, 
-                    ' (', pv.name, ':',variations.name, ')'), p.name) AS product_name"),
+            DB::raw(self::variableProductNameSelectSql()),
             'p.id as product_id',
             'p.brand_id',
             'p.category_id',
