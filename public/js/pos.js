@@ -2270,6 +2270,52 @@ $(document).on('click', '.print-invoice-link', function(e) {
     });
 });
 
+function applyAutoLoyaltyDiscount() {
+    //Don't override the saved discount while editing an existing sale
+    var is_edit = $('form#edit_sell_form').length ||
+        $('form#edit_pos_sell_form').length ? true : false;
+    if (is_edit) {
+        return false;
+    }
+
+    if ($('input#discount_amount').length <= 0) {
+        return false;
+    }
+
+    var customer_id = $('#customer_id').val();
+    if (!customer_id) {
+        return false;
+    }
+
+    $.ajax({
+        method: 'POST',
+        url: '/sells/pos/get-auto-discount-details',
+        data: {
+            customer_id: customer_id
+        },
+        dataType: 'json',
+        success: function(result) {
+            if (result.qualifies) {
+                //Apply percentage discount automatically (cashier can still change it)
+                $('input#discount_type').val('percentage');
+                __write_number($('input#discount_amount'), result.percent);
+
+                $('select#discount_type_modal').val('percentage');
+                __write_number($('input#discount_amount_modal'), result.percent);
+            } else {
+                //Reset to the business default discount
+                $('input#discount_type').val($('input#discount_type').data('default'));
+                __write_number($('input#discount_amount'), $('input#discount_amount').data('default'));
+
+                $('select#discount_type_modal').val($('input#discount_type').data('default'));
+                __write_number($('input#discount_amount_modal'), $('input#discount_amount').data('default'));
+            }
+
+            $('input#discount_amount').change();
+        },
+    });
+}
+
 function getCustomerRewardPoints() {
     if ($('#reward_point_enabled').length <= 0) {
         return false;
@@ -2326,6 +2372,8 @@ $(document).on('change', 'select#customer_id', function(){
         }
         getCustomerRewardPoints();
     }
+
+    applyAutoLoyaltyDiscount();
 
     get_sales_orders();
 });

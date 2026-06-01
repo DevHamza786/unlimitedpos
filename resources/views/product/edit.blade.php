@@ -344,7 +344,7 @@
               <div class="form-group">
                 {!! Form::label('type', __('product.product_type') . ':*') !!} @show_tooltip(__('tooltip.product_type'))
                 {!! Form::select('type', $product_types, $product->type, ['class' => 'form-control select2',
-                  'required','disabled', 'data-action' => 'edit', 'data-product_id' => $product->id ]); !!}
+                  'required', 'data-action' => 'edit', 'data-product_id' => $product->id ]); !!}
               </div>
             </div>
 

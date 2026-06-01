@@ -388,7 +388,12 @@ class BusinessController extends Controller
                 'redeem_amount_per_unit_rp', 'min_order_total_for_redeem',
                 'min_redeem_point', 'max_redeem_point', 'rp_expiry_period',
                 'rp_expiry_type', 'custom_labels', 'weighing_scale_setting',
-                'code_label_1', 'code_1', 'code_label_2', 'code_2', 'currency_precision', 'quantity_precision', ]);
+                'code_label_1', 'code_1', 'code_label_2', 'code_2', 'currency_precision', 'quantity_precision',
+                'auto_discount_min_sales', 'auto_discount_percent', ]);
+
+            $business_details['enable_auto_loyalty_discount'] = ! empty($request->input('enable_auto_loyalty_discount')) && $request->input('enable_auto_loyalty_discount') == 1 ? 1 : 0;
+            $business_details['auto_discount_min_sales'] = ! empty($business_details['auto_discount_min_sales']) ? $this->businessUtil->num_uf($business_details['auto_discount_min_sales']) : 0;
+            $business_details['auto_discount_percent'] = ! empty($business_details['auto_discount_percent']) ? $this->businessUtil->num_uf($business_details['auto_discount_percent']) : 0;
 
             if (! empty($request->input('enable_rp')) && $request->input('enable_rp') == 1) {
                 $business_details['enable_rp'] = 1;

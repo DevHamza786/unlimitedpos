@@ -47,6 +47,7 @@ class Business extends Model
         'square_enabled' => 'boolean',
         'square_access_token' => 'encrypted',
         'square_last_synced_at' => 'datetime',
+        'woocommerce_products_last_synced_at' => 'datetime',
     ];
 
     /**

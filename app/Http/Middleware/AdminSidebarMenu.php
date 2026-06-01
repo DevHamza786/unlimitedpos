@@ -364,124 +364,124 @@ class AdminSidebarMenu
                 )->order(30);
             }
 
-            //Stock transfer dropdown
-            if (in_array('stock_transfers', $enabled_modules) && (auth()->user()->can('purchase.view') || auth()->user()->can('purchase.create'))) {
-                $menu->dropdown(
-                    __('lang_v1.stock_transfers'),
-                    function ($sub) {
-                        if (auth()->user()->can('purchase.view')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockTransferController::class, 'index']),
-                                __('lang_v1.list_stock_transfers'),
-                                ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == null]
-                            );
-                        }
-                        if (auth()->user()->can('purchase.create')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockTransferController::class, 'create']),
-                                __('lang_v1.add_stock_transfer'),
-                                ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == 'create']
-                            );
-                        }
-                    },
-                    ['icon' => 'fa fas fa-truck']
-                )->order(35);
-            }
+            //Stock transfer dropdown (hidden from sidebar)
+            // if (in_array('stock_transfers', $enabled_modules) && (auth()->user()->can('purchase.view') || auth()->user()->can('purchase.create'))) {
+            //     $menu->dropdown(
+            //         __('lang_v1.stock_transfers'),
+            //         function ($sub) {
+            //             if (auth()->user()->can('purchase.view')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\StockTransferController::class, 'index']),
+            //                     __('lang_v1.list_stock_transfers'),
+            //                     ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == null]
+            //                 );
+            //             }
+            //             if (auth()->user()->can('purchase.create')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\StockTransferController::class, 'create']),
+            //                     __('lang_v1.add_stock_transfer'),
+            //                     ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == 'create']
+            //                 );
+            //             }
+            //         },
+            //         ['icon' => 'fa fas fa-truck']
+            //     )->order(35);
+            // }
 
-            //stock adjustment dropdown
-            if (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('purchase.view') || auth()->user()->can('purchase.create'))) {
-                $menu->dropdown(
-                    __('stock_adjustment.stock_adjustment'),
-                    function ($sub) {
-                        if (auth()->user()->can('purchase.view')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockAdjustmentController::class, 'index']),
-                                __('stock_adjustment.list'),
-                                ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == null]
-                            );
-                        }
-                        if (auth()->user()->can('purchase.create')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockAdjustmentController::class, 'create']),
-                                __('stock_adjustment.add'),
-                                ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == 'create']
-                            );
-                        }
-                    },
-                    ['icon' => 'fa fas fa-database']
-                )->order(40);
-            }
+            //stock adjustment dropdown (hidden from sidebar)
+            // if (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('purchase.view') || auth()->user()->can('purchase.create'))) {
+            //     $menu->dropdown(
+            //         __('stock_adjustment.stock_adjustment'),
+            //         function ($sub) {
+            //             if (auth()->user()->can('purchase.view')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\StockAdjustmentController::class, 'index']),
+            //                     __('stock_adjustment.list'),
+            //                     ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == null]
+            //                 );
+            //             }
+            //             if (auth()->user()->can('purchase.create')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\StockAdjustmentController::class, 'create']),
+            //                     __('stock_adjustment.add'),
+            //                     ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == 'create']
+            //                 );
+            //             }
+            //         },
+            //         ['icon' => 'fa fas fa-database']
+            //     )->order(40);
+            // }
 
-            //Expense dropdown
-            if (in_array('expenses', $enabled_modules) && (auth()->user()->can('all_expense.access') || auth()->user()->can('view_own_expense'))) {
-                $menu->dropdown(
-                    __('expense.expenses'),
-                    function ($sub) {
-                        $sub->url(
-                            action([\App\Http\Controllers\ExpenseController::class, 'index']),
-                            __('lang_v1.list_expenses'),
-                            ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == null]
-                        );
+            //Expense dropdown (hidden from sidebar)
+            // if (in_array('expenses', $enabled_modules) && (auth()->user()->can('all_expense.access') || auth()->user()->can('view_own_expense'))) {
+            //     $menu->dropdown(
+            //         __('expense.expenses'),
+            //         function ($sub) {
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\ExpenseController::class, 'index']),
+            //                 __('lang_v1.list_expenses'),
+            //                 ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == null]
+            //             );
 
-                        if (auth()->user()->can('expense.add')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\ExpenseController::class, 'create']),
-                                __('expense.add_expense'),
-                                ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == 'create']
-                            );
-                        }
+            //             if (auth()->user()->can('expense.add')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\ExpenseController::class, 'create']),
+            //                     __('expense.add_expense'),
+            //                     ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == 'create']
+            //                 );
+            //             }
 
-                        if (auth()->user()->can('expense.add') || auth()->user()->can('expense.edit')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\ExpenseCategoryController::class, 'index']),
-                                __('expense.expense_categories'),
-                                ['icon' => 'fa fas fa-circle', 'active' => request()->segment(1) == 'expense-categories']
-                            );
-                        }
-                    },
-                    ['icon' => 'fa fas fa-minus-circle']
-                )->order(45);
-            }
-            //Accounts dropdown
-            if (auth()->user()->can('account.access') && in_array('account', $enabled_modules)) {
-                $menu->dropdown(
-                    __('lang_v1.payment_accounts'),
-                    function ($sub) {
-                        $sub->url(
-                            action([\App\Http\Controllers\AccountController::class, 'index']),
-                            __('account.list_accounts'),
-                            ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'account']
-                        );
-                        $sub->url(
-                            action([\App\Http\Controllers\AccountReportsController::class, 'balanceSheet']),
-                            __('account.balance_sheet'),
-                            ['icon' => 'fa fas fa-book', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'balance-sheet']
-                        );
-                        $sub->url(
-                            action([\App\Http\Controllers\AccountReportsController::class, 'trialBalance']),
-                            __('account.trial_balance'),
-                            ['icon' => 'fa fas fa-balance-scale', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'trial-balance']
-                        );
-                        $sub->url(
-                            action([\App\Http\Controllers\AccountController::class, 'cashFlow']),
-                            __('lang_v1.cash_flow'),
-                            ['icon' => 'fa fas fa-exchange-alt', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'cash-flow']
-                        );
-                        $sub->url(
-                            action([\App\Http\Controllers\AccountReportsController::class, 'paymentAccountReport']),
-                            __('account.payment_account_report'),
-                            ['icon' => 'fa fas fa-file-alt', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'payment-account-report']
-                        );
-                    },
-                    ['icon' => 'fa fas fa-money-check-alt']
-                )->order(50);
-            }
+            //             if (auth()->user()->can('expense.add') || auth()->user()->can('expense.edit')) {
+            //                 $sub->url(
+            //                     action([\App\Http\Controllers\ExpenseCategoryController::class, 'index']),
+            //                     __('expense.expense_categories'),
+            //                     ['icon' => 'fa fas fa-circle', 'active' => request()->segment(1) == 'expense-categories']
+            //                 );
+            //             }
+            //         },
+            //         ['icon' => 'fa fas fa-minus-circle']
+            //     )->order(45);
+            // }
+            //Accounts dropdown (hidden from sidebar)
+            // if (auth()->user()->can('account.access') && in_array('account', $enabled_modules)) {
+            //     $menu->dropdown(
+            //         __('lang_v1.payment_accounts'),
+            //         function ($sub) {
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\AccountController::class, 'index']),
+            //                 __('account.list_accounts'),
+            //                 ['icon' => 'fa fas fa-list', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'account']
+            //             );
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\AccountReportsController::class, 'balanceSheet']),
+            //                 __('account.balance_sheet'),
+            //                 ['icon' => 'fa fas fa-book', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'balance-sheet']
+            //             );
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\AccountReportsController::class, 'trialBalance']),
+            //                 __('account.trial_balance'),
+            //                 ['icon' => 'fa fas fa-balance-scale', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'trial-balance']
+            //             );
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\AccountController::class, 'cashFlow']),
+            //                 __('lang_v1.cash_flow'),
+            //                 ['icon' => 'fa fas fa-exchange-alt', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'cash-flow']
+            //             );
+            //             $sub->url(
+            //                 action([\App\Http\Controllers\AccountReportsController::class, 'paymentAccountReport']),
+            //                 __('account.payment_account_report'),
+            //                 ['icon' => 'fa fas fa-file-alt', 'active' => request()->segment(1) == 'account' && request()->segment(2) == 'payment-account-report']
+            //             );
+            //         },
+            //         ['icon' => 'fa fas fa-money-check-alt']
+            //     )->order(50);
+            // }
 
-            //Reports dropdown
-            if (auth()->user()->can('purchase_n_sell_report.view') || auth()->user()->can('contacts_report.view')
+            //Reports dropdown (hidden from sidebar)
+            if (false && (auth()->user()->can('purchase_n_sell_report.view') || auth()->user()->can('contacts_report.view')
                 || auth()->user()->can('stock_report.view') || auth()->user()->can('tax_report.view')
                 || auth()->user()->can('trending_product_report.view') || auth()->user()->can('sales_representative.view') || auth()->user()->can('register_report.view')
-                || auth()->user()->can('expense_report.view')) {
+                || auth()->user()->can('expense_report.view'))) {
                 $menu->dropdown(
                     __('report.reports'),
                     function ($sub) use ($enabled_modules, $is_admin) {

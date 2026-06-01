@@ -28,7 +28,7 @@ class WooCommerceProductImportService
      *
      * @return array{success: bool, message: string, products?: array, total?: int, pages?: int}
      */
-    public function fetchProducts(Business $business, int $page = 1, int $perPage = 25): array
+    public function fetchProducts(Business $business, int $page = 1, int $perPage = 25, array $extraParams = []): array
     {
         if (! $this->businessIsConfigured($business)) {
             return ['success' => false, 'message' => __('business.woocommerce_not_configured')];
@@ -45,10 +45,10 @@ class WooCommerceProductImportService
                 ->withOptions(['verify' => $verify])
                 ->acceptJson()
                 ->timeout(self::API_TIMEOUT)
-                ->get($base.'/wp-json/wc/v3/products', [
+                ->get($base.'/wp-json/wc/v3/products', array_merge([
                     'page' => $page,
                     'per_page' => $perPage,
-                ]);
+                ], $extraParams));
 
             if (! $response->successful()) {
                 $body = $response->json();
@@ -161,10 +161,87 @@ class WooCommerceProductImportService
         ];
     }
 
+    /**
+     * Auto-sync products from WooCommerce (used by the scheduled command).
+     * When $modifiedAfter is provided, only products created/updated after
+     * that time are fetched, keeping the cron lightweight.
+     *
+     * @return array{success: bool, message: string, created: int, updated: int, failed: int}
+     */
+    public function syncProducts(Business $business, ?\Carbon\Carbon $modifiedAfter = null): array
+    {
+        if (! $this->businessIsConfigured($business)) {
+            return ['success' => false, 'message' => __('business.woocommerce_not_configured'), 'created' => 0, 'updated' => 0, 'failed' => 0];
+        }
+
+        $created = 0;
+        $updated = 0;
+        $failed = 0;
+        $errors = [];
+
+        $extraParams = [];
+        if ($modifiedAfter !== null) {
+            // WooCommerce expects ISO8601; this filters by modified date.
+            $extraParams['modified_after'] = $modifiedAfter->toIso8601String();
+        }
+
+        $page = 1;
+        $perPage = 100;
+
+        do {
+            $result = $this->fetchProducts($business, $page, $perPage, $extraParams);
+
+            if (! $result['success']) {
+                return [
+                    'success' => false,
+                    'message' => $result['message'],
+                    'created' => $created,
+                    'updated' => $updated,
+                    'failed' => $failed,
+                ];
+            }
+
+            $products = $result['products'] ?? [];
+
+            foreach ($products as $wooProduct) {
+                $existsBefore = Product::where('business_id', $business->id)
+                    ->where('woocommerce_product_id', (int) ($wooProduct['id'] ?? 0))
+                    ->exists();
+
+                $importResult = $this->importProduct($business, $wooProduct);
+
+                if (! empty($importResult['success'])) {
+                    $existsBefore ? $updated++ : $created++;
+                } else {
+                    $failed++;
+                    $errors[] = ($wooProduct['name'] ?? 'Unknown').': '.($importResult['message'] ?? '');
+                }
+            }
+
+            $totalPages = (int) ($result['pages'] ?? 1);
+            $page++;
+        } while ($page <= $totalPages);
+
+        $message = "Created: $created, Updated: $updated, Failed: $failed";
+        if (! empty($errors)) {
+            $message .= ' | '.implode(' | ', array_slice($errors, 0, 5));
+        }
+
+        // success = the WooCommerce API calls completed (individual product
+        // failures are reported but must not block the sync watermark).
+        return [
+            'success' => true,
+            'message' => $message,
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+        ];
+    }
+
     private function createProduct(Business $business, array $wooProduct): array
     {
         $wooId = (int) $wooProduct['id'];
-        $type = ($wooProduct['type'] ?? 'simple') === 'variable' ? 'variable' : 'single';
+        $type = $this->resolveWooType($wooProduct);
 
         // Get or create category
         $categoryId = $this->resolveCategory($business, $wooProduct);
@@ -202,7 +279,7 @@ class WooCommerceProductImportService
         if ($type === 'single') {
             $this->createSingleVariation($product, $price, $stockQty, $enableStock);
         } else {
-            $this->createVariableVariations($business, $product, $wooProduct);
+            $this->syncVariableVariations($business, $product, $wooProduct);
         }
 
         $this->syncProductLocations($product);
@@ -228,8 +305,19 @@ class WooCommerceProductImportService
 
         $product->save();
 
-        // Update variation price and stock
-        if ($product->type === 'single') {
+        $wooType = $this->resolveWooType($wooProduct);
+
+        if ($wooType === 'variable') {
+            // Converts an existing single product to variable (if needed) and
+            // (re)syncs every WooCommerce variation/combination.
+            $this->syncVariableVariations($business, $product, $wooProduct);
+        } else {
+            // Make sure the product is single, then refresh price and stock
+            if ($product->type !== 'single') {
+                $product->type = 'single';
+                $product->save();
+            }
+
             $variation = $product->variations()->whereNull('deleted_at')->first();
             if ($variation) {
                 $price = $this->extractWooPrice($wooProduct);
@@ -275,72 +363,154 @@ class WooCommerceProductImportService
         }
     }
 
-    private function createVariableVariations(Business $business, Product $product, array $wooProduct): void
+    /**
+     * Creates or (re)syncs all WooCommerce variations for a variable product.
+     *
+     * Handles three cases:
+     *  - fresh import of a variable product
+     *  - converting a product that was previously imported as "single"
+     *  - re-importing an already-variable product (matched by woocommerce_variation_id)
+     *
+     * UltimatePOS supports a single variation dimension, so multi-attribute
+     * WooCommerce products (e.g. Size x Leg length) are flattened into one
+     * dimension with combined value labels like "24 / S".
+     */
+    private function syncVariableVariations(Business $business, Product $product, array $wooProduct): void
     {
-        $variations = $wooProduct['variations'] ?? [];
+        $wooProductId = (int) ($wooProduct['id'] ?? $product->woocommerce_product_id);
 
-        if ($this->variationsAreIds($variations)) {
-            $wooProductId = (int) ($wooProduct['id'] ?? $product->woocommerce_product_id);
+        $variations = $wooProduct['variations'] ?? [];
+        if (empty($variations) || $this->variationsAreIds($variations)) {
             $variations = $this->fetchProductVariations($business, $wooProductId);
         }
 
-        // If no variations in response, create a default one
-        if (empty($variations)) {
-            $productVariation = ProductVariation::create([
-                'product_id' => $product->id,
-                'name' => 'Default',
-                'is_dummy' => 1,
-            ]);
+        // Keep only the actual variation objects
+        $variations = array_values(array_filter($variations, 'is_array'));
 
-            Variation::create([
-                'product_id' => $product->id,
-                'product_variation_id' => $productVariation->id,
-                'name' => 'Default',
-                'sub_sku' => $product->sku,
-                'sell_price_inc_tax' => 0,
-            ]);
+        // Nothing usable from WooCommerce — keep a safe placeholder and stop
+        if (empty($variations)) {
+            $this->ensureVariableDefault($product);
 
             return;
         }
 
-        $attributeLabel = 'Variation';
-        foreach ($variations as $wooVar) {
-            if (is_array($wooVar)) {
-                $attributeLabel = $this->buildVariationAttributeLabel($wooVar);
-                break;
-            }
+        // Ensure the product is flagged as variable
+        if ($product->type !== 'variable') {
+            $product->type = 'variable';
+            $product->save();
         }
 
-        $productVariation = ProductVariation::create([
-            'product_id' => $product->id,
-            'name' => $attributeLabel,
-            'is_dummy' => 0,
-        ]);
+        $attributeLabel = $this->buildVariationAttributeLabel($variations[0]);
 
-        // Create variations from WooCommerce data
+        // UltimatePOS expects exactly one product_variation (dimension).
+        // Rebuild from scratch if the structure is off (0 or multiple rows
+        // from older/broken imports); otherwise reuse the existing one.
+        $existingPvs = ProductVariation::where('product_id', $product->id)->get();
+
+        if ($existingPvs->count() !== 1) {
+            Variation::where('product_id', $product->id)->delete();
+            ProductVariation::where('product_id', $product->id)->delete();
+
+            $productVariation = ProductVariation::create([
+                'product_id' => $product->id,
+                'name' => $attributeLabel,
+                'is_dummy' => 0,
+            ]);
+        } else {
+            $productVariation = $existingPvs->first();
+            $productVariation->name = $attributeLabel;
+            $productVariation->is_dummy = 0;
+            $productVariation->save();
+
+            // Drop any dummy "Default" variation left over from a single import
+            Variation::where('product_variation_id', $productVariation->id)
+                ->whereNull('woocommerce_variation_id')
+                ->delete();
+        }
+
+        // Existing variations keyed by their WooCommerce id (for upsert)
+        $existing = Variation::where('product_variation_id', $productVariation->id)
+            ->whereNotNull('woocommerce_variation_id')
+            ->get()
+            ->keyBy('woocommerce_variation_id');
+
         foreach ($variations as $idx => $wooVar) {
-            if (! is_array($wooVar)) {
-                continue;
-            }
-
+            $wooVarId = ! empty($wooVar['id']) ? (int) $wooVar['id'] : null;
             $varName = $this->buildVariationLabel($wooVar, $idx);
             $varPrice = $this->extractWooPrice($wooVar);
             $varStock = (int) ($wooVar['stock_quantity'] ?? 0);
-            $varSku = ! empty($wooVar['sku']) ? $wooVar['sku'] : $product->sku.'-'.$idx;
+            $varSku = ! empty($wooVar['sku']) ? $wooVar['sku'] : $product->sku.'-'.($idx + 1);
 
-            $variation = Variation::create([
-                'product_id' => $product->id,
-                'product_variation_id' => $productVariation->id,
-                'name' => $varName,
-                'sub_sku' => $varSku,
-                'sell_price_inc_tax' => $varPrice,
-                'woocommerce_variation_id' => ! empty($wooVar['id']) ? (int) $wooVar['id'] : null,
-            ]);
+            $variation = ($wooVarId !== null && isset($existing[$wooVarId])) ? $existing[$wooVarId] : null;
+
+            if ($variation) {
+                $variation->name = $varName;
+                $variation->sub_sku = $varSku;
+                $variation->sell_price_inc_tax = $varPrice;
+                $variation->default_sell_price = $varPrice;
+                $variation->save();
+            } else {
+                $variation = Variation::create([
+                    'product_id' => $product->id,
+                    'product_variation_id' => $productVariation->id,
+                    'name' => $varName,
+                    'sub_sku' => $varSku,
+                    'sell_price_inc_tax' => $varPrice,
+                    'default_sell_price' => $varPrice,
+                    'woocommerce_variation_id' => $wooVarId,
+                ]);
+            }
 
             if ($product->enable_stock) {
                 $this->ensureVariationLocationStock($product, $variation, $varStock);
             }
         }
+    }
+
+    /**
+     * Fallback when a variable product returns no usable variation data.
+     */
+    private function ensureVariableDefault(Product $product): void
+    {
+        if (ProductVariation::where('product_id', $product->id)->exists()) {
+            return;
+        }
+
+        $productVariation = ProductVariation::create([
+            'product_id' => $product->id,
+            'name' => 'Default',
+            'is_dummy' => 1,
+        ]);
+
+        Variation::create([
+            'product_id' => $product->id,
+            'product_variation_id' => $productVariation->id,
+            'name' => 'Default',
+            'sub_sku' => $product->sku,
+            'sell_price_inc_tax' => 0,
+        ]);
+    }
+
+    /**
+     * Robustly determine whether a WooCommerce product is variable.
+     */
+    private function resolveWooType(array $wooProduct): string
+    {
+        if (($wooProduct['type'] ?? '') === 'variable') {
+            return 'variable';
+        }
+
+        if (! empty($wooProduct['variations'])) {
+            return 'variable';
+        }
+
+        foreach ($wooProduct['attributes'] ?? [] as $attr) {
+            if (is_array($attr) && ! empty($attr['variation'])) {
+                return 'variable';
+            }
+        }
+
+        return 'single';
     }
 
     /**

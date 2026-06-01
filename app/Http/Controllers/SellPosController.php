@@ -2520,6 +2520,44 @@ class SellPosController extends Controller
         return json_encode($redeem_details);
     }
 
+    /**
+     * Checks whether the selected customer qualifies for the automatic loyalty
+     * discount based on their lifetime finalized sales and the business setting.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAutoDiscountDetails(Request $request)
+    {
+        $business_id = $request->session()->get('user.business_id');
+
+        $business = Business::find($business_id);
+
+        $response = ['qualifies' => false, 'percent' => 0];
+
+        if (empty($business) || empty($business->enable_auto_loyalty_discount)) {
+            return response()->json($response);
+        }
+
+        $customer_id = $request->input('customer_id');
+
+        if (empty($customer_id)) {
+            return response()->json($response);
+        }
+
+        $lifetime_sales = Transaction::where('business_id', $business_id)
+            ->where('contact_id', $customer_id)
+            ->where('type', 'sell')
+            ->where('status', 'final')
+            ->sum('final_total');
+
+        if ($lifetime_sales >= $business->auto_discount_min_sales) {
+            $response['qualifies'] = true;
+            $response['percent'] = (float) $business->auto_discount_percent;
+        }
+
+        return response()->json($response);
+    }
+
     public function placeOrdersApi(Request $request)
     {
         try {

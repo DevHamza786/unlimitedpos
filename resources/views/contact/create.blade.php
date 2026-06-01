@@ -228,9 +228,10 @@
             <div class="clearfix"></div>
         </div>
         <div class="row">
-            <div class="col-md-12">
+            {{-- More Informations button hidden --}}
+            {{-- <div class="col-md-12">
                 <button type="button" class="btn btn-primary center-block more_btn" data-target="#more_div">@lang('lang_v1.more_info') <i class="fa fa-chevron-down"></i></button>
-            </div>
+            </div> --}}
 
             <div id="more_div" class="hide">
                 {!! Form::hidden('position', null, ['id' => 'position']); !!}
