@@ -1750,6 +1750,11 @@ class SellPosController extends Controller
         $product->default_sell_price = round((float) $product->default_sell_price, $currency_precision);
         $product->sell_price_inc_tax = round((float) $product->sell_price_inc_tax, $currency_precision);
 
+        // Stale default_sell_price (e.g. old exc+GST) must not override inclusive / no-tax sell price on POS.
+        if (empty($product->tax_id) || ($product->tax_type ?? 'exclusive') === 'inclusive') {
+            $product->default_sell_price = $product->sell_price_inc_tax;
+        }
+
         $warranties = $this->__getwarranties();
 
         $output['success'] = true;

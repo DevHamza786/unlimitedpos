@@ -56,7 +56,8 @@
 				// Inline tax off: use inc-tax sell price (matches inclusive / no-tax product setup).
 			}
 
-			$pos_sell_price = $hide_tax === 'hide'
+			$pos_use_inc_price = empty($product->tax_id) || ($product->tax_type ?? 'exclusive') === 'inclusive';
+			$pos_sell_price = $pos_use_inc_price
 				? $product->sell_price_inc_tax
 				: $product->default_sell_price;
 

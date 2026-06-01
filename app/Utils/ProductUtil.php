@@ -207,13 +207,17 @@ class ProductUtil extends Util
             //Update existing variations
             if (! empty($value['variations_edit'])) {
                 foreach ($value['variations_edit'] as $k => $v) {
+                    $sellInc = $this->num_uf($v['sell_price_inc_tax']);
+                    $useIncAsSell = empty($product->tax) || ($product->tax_type ?? 'exclusive') === 'inclusive';
                     $data = [
                         'name' => $v['value'],
                         'default_purchase_price' => $this->num_uf($v['default_purchase_price']),
                         'dpp_inc_tax' => $this->num_uf($v['dpp_inc_tax']),
                         'profit_percent' => $this->num_uf($v['profit_percent']),
-                        'default_sell_price' => $this->num_uf($v['default_sell_price']),
-                        'sell_price_inc_tax' => $this->num_uf($v['sell_price_inc_tax']),
+                        'sell_price_inc_tax' => $sellInc,
+                        'default_sell_price' => $useIncAsSell
+                            ? $sellInc
+                            : $this->num_uf($v['default_sell_price'] ?? $sellInc),
                     ];
                     if (! empty($v['sub_sku'])) {
                         $data['sub_sku'] = $v['sub_sku'];
@@ -329,6 +333,22 @@ class ProductUtil extends Util
         ProductVariation::where('product_id', $product_id)
                 ->whereNotIn('id', $product_variation_ids)
                 ->delete();
+
+        $this->syncVariationExcSellPriceWithIncTax($product->fresh());
+    }
+
+    /**
+     * When product has no tax or inclusive pricing, exc. sell price must match inc. (POS uses both).
+     */
+    public function syncVariationExcSellPriceWithIncTax(?Product $product): void
+    {
+        if ($product === null || (! empty($product->tax) && ($product->tax_type ?? 'exclusive') !== 'inclusive')) {
+            return;
+        }
+
+        Variation::where('product_id', $product->id)
+            ->whereNull('deleted_at')
+            ->update(['default_sell_price' => DB::raw('sell_price_inc_tax')]);
     }
 
     /**
@@ -492,6 +512,7 @@ class ProductUtil extends Util
             'p.brand_id',
             'p.category_id',
             'p.tax as tax_id',
+            'p.tax_type as tax_type',
             'p.enable_stock',
             'p.enable_sr_no',
             'p.type as product_type',

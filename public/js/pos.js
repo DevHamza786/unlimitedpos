@@ -1673,17 +1673,34 @@ function pos_product_row(variation_id = null, purchase_line_id = null, weighing_
 
 //Update values for each row
 function pos_each_row(row_obj) {
-    var unit_price = __read_number(row_obj.find('input.pos_unit_price'));
-
-    var discounted_unit_price = calculate_discounted_unit_price(row_obj);
     var tax_rate = row_obj
         .find('select.tax_id')
         .find(':selected')
         .data('rate');
+    tax_rate = tax_rate === undefined || tax_rate === null || tax_rate === '' ? 0 : parseFloat(tax_rate);
+
+    var inc_input = row_obj.find('input.pos_unit_price_inc_tax');
+    var existing_inc = __read_number(inc_input);
+
+    // No line tax: keep server-rendered inc price (avoids modal exc price overwriting inclusive/no-tax products).
+    if (!tax_rate && existing_inc > 0) {
+        __write_number(row_obj.find('input.item_tax'), 0);
+        var qty = __read_number(row_obj.find('input.pos_quantity'));
+        if (qty > 0) {
+            var line_total = qty * existing_inc;
+            __write_number(row_obj.find('input.pos_line_total'), line_total);
+            row_obj.find('span.pos_line_total_text').text(__currency_trans_from_en(line_total, true));
+        }
+        return;
+    }
+
+    var unit_price = __read_number(row_obj.find('input.pos_unit_price'));
+
+    var discounted_unit_price = calculate_discounted_unit_price(row_obj);
 
     var unit_price_inc_tax =
         discounted_unit_price + __calculate_amount('percentage', tax_rate, discounted_unit_price);
-    __write_number(row_obj.find('input.pos_unit_price_inc_tax'), unit_price_inc_tax);
+    __write_number(inc_input, unit_price_inc_tax);
 
     var discount = __read_number(row_obj.find('input.row_discount_amount'));
 

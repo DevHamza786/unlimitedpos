@@ -8,8 +8,8 @@
 			<div class="row">
 				<div class="form-group col-xs-12 @if(!auth()->user()->can('edit_product_price_from_sale_screen')) hide @endif">
 					@php
-						$hide_tax_modal = session()->get('business.enable_inline_tax') != 1;
-						$pos_sell_price_modal = $hide_tax_modal
+						$pos_use_inc_price_modal = empty($product->tax_id) || ($product->tax_type ?? 'exclusive') === 'inclusive';
+						$pos_sell_price_modal = $pos_use_inc_price_modal
 							? $product->sell_price_inc_tax
 							: $product->default_sell_price;
 						$pos_unit_price = !empty($product->unit_price_before_discount) ? $product->unit_price_before_discount : $pos_sell_price_modal;
