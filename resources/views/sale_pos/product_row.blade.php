@@ -53,8 +53,12 @@
 
 			if($hide_tax == 'hide'){
 				$tax_id = null;
-				$unit_price_inc_tax = $product->default_sell_price;
+				// Inline tax off: use inc-tax sell price (matches inclusive / no-tax product setup).
 			}
+
+			$pos_sell_price = $hide_tax === 'hide'
+				? $product->sell_price_inc_tax
+				: $product->default_sell_price;
 
 			if(!empty($so_line) && $action !== 'edit') {
 				$tax_id = $so_line->tax_id;
@@ -274,7 +278,7 @@
 
 		<input type="hidden" class="base_unit_multiplier" name="products[{{$row_count}}][base_unit_multiplier]" value="{{$multiplier}}">
 
-		<input type="hidden" class="hidden_base_unit_sell_price" value="{{$product->default_sell_price / $multiplier}}">
+		<input type="hidden" class="hidden_base_unit_sell_price" value="{{$pos_sell_price / $multiplier}}">
 		
 		{{-- Hidden fields for combo products --}}
 		@if($product->product_type == 'combo'&& !empty($product->combo_products))
@@ -327,7 +331,7 @@
 			</td>
 		@endif
 		@php
-			$pos_unit_price = !empty($product->unit_price_before_discount) ? $product->unit_price_before_discount : $product->default_sell_price;
+			$pos_unit_price = !empty($product->unit_price_before_discount) ? $product->unit_price_before_discount : $pos_sell_price;
 
 			if(!empty($so_line) && $action !== 'edit') {
 				$pos_unit_price = $so_line->unit_price_before_discount;

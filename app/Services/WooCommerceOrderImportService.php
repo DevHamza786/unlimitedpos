@@ -100,6 +100,8 @@ class WooCommerceOrderImportService
                     'woocommerce_order_id' => $orderId,
                     'line_id' => $line['id'] ?? null,
                     'product_id' => $line['product_id'] ?? null,
+                    'variation_id' => $line['variation_id'] ?? null,
+                    'sku' => $line['sku'] ?? null,
                 ]);
 
                 continue;
