@@ -107,6 +107,14 @@ class WooCommerceProductImportService
             return $this->updateProduct($business, $existing, $wooProduct);
         }
 
+        $existing = $this->findExistingPosProduct($business, $wooProduct);
+        if ($existing) {
+            $existing->woocommerce_product_id = $wooId;
+            $existing->save();
+
+            return $this->updateProduct($business, $existing, $wooProduct);
+        }
+
         return $this->createProduct($business, $wooProduct);
     }
 
@@ -631,6 +639,69 @@ class WooCommerceProductImportService
         ]);
 
         return $unit->id;
+    }
+
+    private function findExistingPosProduct(Business $business, array $wooProduct): ?Product
+    {
+        $sku = trim((string) ($wooProduct['sku'] ?? ''));
+        if ($sku !== '') {
+            $bySku = Product::where('business_id', $business->id)
+                ->where('sku', $sku)
+                ->where(function ($query) {
+                    $query->whereNull('woocommerce_product_id')
+                        ->orWhere('woocommerce_product_id', 0);
+                })
+                ->first();
+
+            if ($bySku) {
+                return $bySku;
+            }
+        }
+
+        $name = trim((string) ($wooProduct['name'] ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $normalizedWooName = $this->normalizeProductNameForMatch($name);
+        $needle = mb_substr($name, 0, 40);
+
+        $candidates = Product::where('business_id', $business->id)
+            ->where(function ($query) {
+                $query->whereNull('woocommerce_product_id')
+                    ->orWhere('woocommerce_product_id', 0);
+            })
+            ->where('name', 'like', '%'.$needle.'%')
+            ->limit(20)
+            ->get();
+
+        $best = null;
+        $bestScore = 0.0;
+
+        foreach ($candidates as $candidate) {
+            $normalizedPosName = $this->normalizeProductNameForMatch((string) $candidate->name);
+            if ($normalizedPosName === $normalizedWooName) {
+                return $candidate;
+            }
+
+            similar_text($normalizedPosName, $normalizedWooName, $score);
+            if ($score > $bestScore && $score >= 82.0) {
+                $bestScore = $score;
+                $best = $candidate;
+            }
+        }
+
+        return $best;
+    }
+
+    private function normalizeProductNameForMatch(string $name): string
+    {
+        $name = strtolower(trim($name));
+        $name = preg_replace('/\s*-\s*[\w-]+$/', '', $name) ?? $name;
+        $name = str_replace(["'", '’', '`', '"'], '', $name);
+        $name = preg_replace('/[^a-z0-9]+/', ' ', $name) ?? $name;
+
+        return trim(preg_replace('/\s+/', ' ', $name) ?? $name);
     }
 
     private function generateSku(Business $business, array $wooProduct): string

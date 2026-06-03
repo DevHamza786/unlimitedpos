@@ -213,6 +213,17 @@
         });
 
         $('#test_woocommerce_btn').click(function() {
+            var $btn = $(this);
+            if ($btn.prop('disabled')) {
+                return;
+            }
+
+            if (!$btn.data('orig-html')) {
+                $btn.data('orig-html', $btn.html());
+            }
+
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> @lang('business.woocommerce_test_connection')');
+
             var data = {
                 _token: '{{ csrf_token() }}',
                 woocommerce_store_url: $('#woocommerce_store_url').val(),
@@ -234,6 +245,9 @@
                 error: function(xhr) {
                     var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
                     swal({ text: msg, icon: 'error' });
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html($btn.data('orig-html'));
                 }
             });
         });

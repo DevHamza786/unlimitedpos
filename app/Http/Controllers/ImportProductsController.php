@@ -211,6 +211,7 @@ class ImportProductsController extends Controller
                     }
 
                     //Add unit
+                    //Check if unit exists else create new
                     $unit_name = trim($value[2]);
                     if (! empty($unit_name)) {
                         $unit = Unit::where('business_id', $business_id)
@@ -218,13 +219,16 @@ class ImportProductsController extends Controller
                                         $query->where('short_name', $unit_name)
                                               ->orWhere('actual_name', $unit_name);
                                     })->first();
-                        if (! empty($unit)) {
-                            $product_array['unit_id'] = $unit->id;
-                        } else {
-                            $is_valid = false;
-                            $error_msg = "Unit with name $unit_name not found in row no. $row_no. You can add unit from Products > Units";
-                            break;
+                        if (empty($unit)) {
+                            $unit = Unit::create([
+                                'business_id' => $business_id,
+                                'actual_name' => $unit_name,
+                                'short_name' => $unit_name,
+                                'allow_decimal' => 0,
+                                'created_by' => $user_id,
+                            ]);
                         }
+                        $product_array['unit_id'] = $unit->id;
                     } else {
                         $is_valid = false;
                         $error_msg = "UNIT is required in row no. $row_no";

@@ -40,7 +40,7 @@
     <tfoot>
         <tr>
             <td colspan="{{$colspan}}">
-            <div style="display: flex; width: 100%;">
+            <div style="display: flex; width: 100%; gap: 8px; flex-wrap: wrap; align-items: center;">
                 @can('product.delete')
                     {!! Form::open(['url' => action([\App\Http\Controllers\ProductController::class, 'massDestroy']), 'method' => 'post', 'id' => 'mass_delete_form' ]) !!}
                     {!! Form::hidden('selected_rows', null, ['id' => 'selected_rows']); !!}
@@ -58,10 +58,6 @@
                             <button type="submit" class="btn btn-xs btn-primary" id="edit-selected"> <i class="fa fa-edit"></i>{{__('lang_v1.bulk_edit')}}</button>
                             {!! Form::close() !!}
                         @endif
-                        &nbsp;
-                        <button type="button" class="btn btn-xs btn-success update_product_location" data-type="add">@lang('lang_v1.add_to_location')</button>
-                        &nbsp;
-                        <button type="button" class="btn btn-xs bg-navy update_product_location" data-type="remove">@lang('lang_v1.remove_from_location')</button>
                     @endcan
                 
                 &nbsp;
@@ -74,6 +70,7 @@
                     <button type="button" class="btn btn-xs btn-warning toggle_woocomerce_sync">
                         @lang('lang_v1.woocommerce_sync')
                     </button>
+                    &nbsp;
                     <button type="button" class="btn btn-xs btn-primary" id="bulk_push_woocommerce_btn">
                         <i class="fab fa-wordpress"></i> @lang('business.woocommerce_push_selected')
                     </button>

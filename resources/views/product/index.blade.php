@@ -160,6 +160,29 @@
     <script src="{{ asset('js/product.js?v=' . $asset_v) }}"></script>
     <script src="{{ asset('js/opening_stock.js?v=' . $asset_v) }}"></script>
     <script type="text/javascript">
+        function setProductBulkBtnLoading($btn, loading) {
+            if (!$btn || !$btn.length) {
+                return;
+            }
+
+            if (loading) {
+                if (!$btn.data('orig-html')) {
+                    $btn.data('orig-html', $btn.html());
+                }
+                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+            } else {
+                $btn.prop('disabled', false);
+                if ($btn.data('orig-html')) {
+                    $btn.html($btn.data('orig-html'));
+                }
+            }
+        }
+
+        function setProductBulkActionsDisabled(disabled) {
+            $('#delete-selected, #deactivate-selected, .toggle_woocomerce_sync, #bulk_push_woocommerce_btn')
+                .prop('disabled', disabled);
+        }
+
         $(document).ready( function(){
             product_table = $('#product_table').DataTable({
                 processing: true,
@@ -309,6 +332,9 @@
                         dangerMode: true,
                     }).then((willDelete) => {
                         if (willDelete) {
+                            var $btn = $('#delete-selected');
+                            setProductBulkActionsDisabled(true);
+                            setProductBulkBtnLoading($btn, true);
                             $('form#mass_delete_form').submit();
                         }
                     });
@@ -331,26 +357,35 @@
                         dangerMode: true,
                     }).then((willDelete) => {
                         if (willDelete) {
-                            var form = $('form#mass_deactivate_form')
+                            var form = $('form#mass_deactivate_form');
+                            var $btn = $('#deactivate-selected');
 
-                            var data = form.serialize();
-                                $.ajax({
-                                    method: form.attr('method'),
-                                    url: form.attr('action'),
-                                    dataType: 'json',
-                                    data: data,
-                                    success: function(result) {
-                                        if (result.success == true) {
-                                            toastr.success(result.msg);
-                                            product_table.ajax.reload();
-                                            form
-                                            .find('#selected_products')
-                                            .val('');
-                                        } else {
-                                            toastr.error(result.msg);
-                                        }
-                                    },
-                                });
+                            setProductBulkActionsDisabled(true);
+                            setProductBulkBtnLoading($btn, true);
+
+                            $.ajax({
+                                method: form.attr('method'),
+                                url: form.attr('action'),
+                                dataType: 'json',
+                                data: form.serialize(),
+                                success: function(result) {
+                                    if (result.success == true) {
+                                        toastr.success(result.msg);
+                                        product_table.ajax.reload();
+                                        form.find('#selected_products').val('');
+                                    } else {
+                                        toastr.error(result.msg);
+                                    }
+                                },
+                                error: function(xhr) {
+                                    var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
+                                    toastr.error(msg);
+                                },
+                                complete: function() {
+                                    setProductBulkBtnLoading($btn, false);
+                                    setProductBulkActionsDisabled(false);
+                                }
+                            });
                         }
                     });
                 } else{
@@ -431,15 +466,17 @@
                     var url = $('form#toggle_woocommerce_sync_form').attr('action');
                     var method = $('form#toggle_woocommerce_sync_form').attr('method');
                     var data = $('form#toggle_woocommerce_sync_form').serialize();
-                    var ladda = Ladda.create(document.querySelector('.ladda-button'));
+                    var $saveBtn = $('form#toggle_woocommerce_sync_form').find('button[type="submit"]');
+                    var ladda = Ladda.create($saveBtn[0]);
                     ladda.start();
+                    setProductBulkActionsDisabled(true);
+                    setProductBulkBtnLoading($('.toggle_woocomerce_sync'), true);
                     $.ajax({
                         method: method,
                         dataType: "json",
                         url: url,
                         data:data,
                         success: function(result){
-                            ladda.stop();
                             if (result.success) {
                                 $("input#woocommerce_products_sync").val('');
                                 $('#woocommerce_sync_modal').modal('hide');
@@ -448,17 +485,35 @@
                             } else {
                                 toastr.error(result.msg);
                             }
+                        },
+                        error: function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
+                            toastr.error(msg);
+                        },
+                        complete: function() {
+                            ladda.stop();
+                            setProductBulkBtnLoading($('.toggle_woocomerce_sync'), false);
+                            setProductBulkActionsDisabled(false);
                         }
                     });
                 });
 
                 $(document).on('click', '.push-woocommerce-product', function(e){
                     e.preventDefault();
-                    var id = $(this).data('product-id');
+                    var $link = $(this);
+                    if ($link.data('loading')) {
+                        return;
+                    }
+                    var id = $link.data('product-id');
+                    $link.data('loading', true);
+                    var originalHtml = $link.html();
+                    $link.html('<i class="fa fa-spinner fa-spin"></i> ' + originalHtml.replace(/<[^>]*>/g, '').trim());
+
                     $.ajax({
                         method: 'post',
                         url: "{{ url('products') }}/" + id + "/woocommerce-push",
                         dataType: 'json',
+                        timeout: 120000,
                         data: { _token: '{{ csrf_token() }}' },
                         success: function(result){
                             if (result.success == 1) {
@@ -470,17 +525,29 @@
                         },
                         error: function(xhr){
                             var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
+                            if (xhr.statusText === 'timeout') {
+                                msg = '@lang("business.woocommerce_push_timeout")';
+                            }
                             toastr.error(msg);
+                        },
+                        complete: function(){
+                            $link.data('loading', false);
+                            $link.html(originalHtml);
                         }
                     });
                 });
 
                 $(document).on('click', '#bulk_push_woocommerce_btn', function(){
+                    var $btn = $(this);
                     var selected = getSelectedRows();
                     if (selected.length === 0) {
                         swal('@lang("lang_v1.no_row_selected")');
                         return;
                     }
+
+                    setProductBulkActionsDisabled(true);
+                    setProductBulkBtnLoading($btn, true);
+
                     $.ajax({
                         method: 'post',
                         url: "{{ action([\App\Http\Controllers\ProductController::class, 'postBulkPushProductsToWooCommerce']) }}",
@@ -497,6 +564,10 @@
                         error: function(xhr){
                             var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
                             toastr.error(msg);
+                        },
+                        complete: function() {
+                            setProductBulkBtnLoading($btn, false);
+                            setProductBulkActionsDisabled(false);
                         }
                     });
                 });
