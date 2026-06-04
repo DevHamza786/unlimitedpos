@@ -51,12 +51,16 @@ class WooCommerceProductImportService
                 ], $extraParams));
 
             if (! $response->successful()) {
-                $body = $response->json();
-                $msg = is_array($body) && ! empty($body['message']) ? $body['message'] : $response->body();
-
                 return [
                     'success' => false,
-                    'message' => __('business.woocommerce_fetch_failed').': '.substr(strip_tags((string) $msg), 0, 300),
+                    'message' => $this->parseFetchFailure($response),
+                ];
+            }
+
+            if ($this->responseIsHtml($response)) {
+                return [
+                    'success' => false,
+                    'message' => __('business.woocommerce_api_html_response'),
                 ];
             }
 
@@ -77,6 +81,84 @@ class WooCommerceProductImportService
             ];
         } catch (\Throwable $e) {
             Log::warning('WooCommerce fetch products: '.$e->getMessage());
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Fetch only specific WooCommerce products (for manual import — avoids loading the entire catalog).
+     *
+     * @param  array<int>  $wooProductIds
+     * @return array{success: bool, message: string, products?: array<int, array<string, mixed>>}
+     */
+    public function fetchProductsByIds(Business $business, array $wooProductIds): array
+    {
+        if (! $this->businessIsConfigured($business)) {
+            return ['success' => false, 'message' => __('business.woocommerce_not_configured')];
+        }
+
+        $wooProductIds = array_values(array_unique(array_filter(array_map('intval', $wooProductIds))));
+        if ($wooProductIds === []) {
+            return ['success' => false, 'message' => __('lang_v1.no_products_selected')];
+        }
+
+        $base = rtrim((string) $business->woocommerce_store_url, '/');
+        $verify = (bool) config('constants.woocommerce_verify_ssl', true);
+        $products = [];
+
+        try {
+            foreach (array_chunk($wooProductIds, 100) as $chunk) {
+                $response = Http::withBasicAuth(
+                    $business->woocommerce_consumer_key,
+                    $business->woocommerce_consumer_secret
+                )
+                    ->withOptions(['verify' => $verify])
+                    ->acceptJson()
+                    ->timeout(self::API_TIMEOUT)
+                    ->get($base.'/wp-json/wc/v3/products', [
+                        'include' => implode(',', $chunk),
+                        'per_page' => count($chunk),
+                        'status' => 'any',
+                    ]);
+
+                if (! $response->successful()) {
+                    return [
+                        'success' => false,
+                        'message' => $this->parseFetchFailure($response),
+                    ];
+                }
+
+                $batch = $response->json();
+                if (! is_array($batch)) {
+                    return [
+                        'success' => false,
+                        'message' => __('business.woocommerce_invalid_api_response'),
+                    ];
+                }
+
+                foreach ($batch as $product) {
+                    if (is_array($product) && ! empty($product['id'])) {
+                        $product['display_price'] = $this->resolveDisplayPrice($business, $product);
+                        $products[] = $product;
+                    }
+                }
+            }
+
+            if ($products === []) {
+                return [
+                    'success' => false,
+                    'message' => __('business.woocommerce_import_ids_not_found'),
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => '',
+                'products' => $products,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('WooCommerce fetch products by ids: '.$e->getMessage());
 
             return ['success' => false, 'message' => $e->getMessage()];
         }
@@ -961,5 +1043,36 @@ class WooCommerceProductImportService
 
             return [];
         }
+    }
+
+    private function parseFetchFailure($response): string
+    {
+        if ($this->responseIsHtml($response)) {
+            return (string) __('business.woocommerce_api_html_response');
+        }
+
+        $body = $response->json();
+        $code = is_array($body) ? trim((string) ($body['code'] ?? '')) : '';
+        $msg = is_array($body) && ! empty($body['message']) ? (string) $body['message'] : strip_tags((string) $response->body());
+        $detail = $code !== '' ? $code.': '.$msg : $msg;
+        $detail = substr($detail, 0, 280);
+
+        if ($code === 'woocommerce_rest_cannot_view' || str_contains(strtolower($msg), 'not allowed to')) {
+            return __('business.woocommerce_fetch_read_denied').' ['.$detail.']';
+        }
+
+        return __('business.woocommerce_fetch_failed').': '.$detail;
+    }
+
+    private function responseIsHtml($response): bool
+    {
+        $contentType = strtolower((string) $response->header('Content-Type'));
+        if (str_contains($contentType, 'text/html')) {
+            return true;
+        }
+
+        $body = ltrim((string) $response->body());
+
+        return $body !== '' && (str_starts_with($body, '<!DOCTYPE') || str_starts_with($body, '<html'));
     }
 }

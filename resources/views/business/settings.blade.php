@@ -441,34 +441,54 @@
                 );
             }
 
-            $.ajax({
-                method: 'post',
-                url: '/woocommerce/import-products',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    product_ids: selectedIds
-                },
-                dataType: 'json',
-                timeout: 300000,
-                success: function(result) {
-                    if (result.success) {
-                        swal({ text: result.message, icon: 'success' });
-                    } else {
-                        swal({ text: result.message, icon: 'error' });
-                    }
-                    closeWooImportModal();
-                },
-                error: function(xhr) {
-                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
-                    if (xhr.status === 503 || xhr.status === 502 || xhr.status === 504) {
-                        msg = '@lang("business.woocommerce_push_server_error")';
-                    }
-                    swal({ text: msg, icon: 'error' });
-                },
-                complete: function() {
+            function importNextBatch(offset) {
+                var batchSize = 10;
+                var batch = selectedIds.slice(offset, offset + batchSize);
+                if (batch.length === 0) {
                     resetImportButton();
+                    return;
                 }
-            });
+
+                $importBtn.html('<i class="fa fa-spinner fa-spin"></i> ' + (offset + batch.length) + '/' + selectedIds.length);
+
+                $.ajax({
+                    method: 'post',
+                    url: '/woocommerce/import-products',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        product_ids: batch
+                    },
+                    dataType: 'json',
+                    timeout: 120000,
+                    success: function(result) {
+                        if (!result.success && offset === 0) {
+                            swal({ text: result.message, icon: 'error' });
+                            resetImportButton();
+                            return;
+                        }
+                        if (offset + batchSize >= selectedIds.length) {
+                            swal({
+                                text: result.message || '@lang("lang_v1.success")',
+                                icon: result.success ? 'success' : 'warning'
+                            });
+                            closeWooImportModal();
+                            resetImportButton();
+                            return;
+                        }
+                        importNextBatch(offset + batchSize);
+                    },
+                    error: function(xhr) {
+                        var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
+                        if (xhr.status === 503 || xhr.status === 502 || xhr.status === 504) {
+                            msg = '@lang("business.woocommerce_import_server_error")';
+                        }
+                        swal({ text: msg, icon: 'error' });
+                        resetImportButton();
+                    }
+                });
+            }
+
+            importNextBatch(0);
         });
 
         $('select.custom_labels_products').change(function(){

@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Business;
 use App\Services\WooCommerceProductImportService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class WooCommerceController extends Controller
 {
@@ -13,13 +13,19 @@ class WooCommerceController extends Controller
         private WooCommerceProductImportService $importService
     ) {}
 
+    private function resolveBusiness(Request $request): Business
+    {
+        $businessId = (int) $request->session()->get('user.business_id', $request->session()->get('business.id'));
+
+        return Business::findOrFail($businessId);
+    }
+
     /**
      * List products from WooCommerce for selection
      */
     public function listProducts(Request $request): JsonResponse
     {
-        $businessId = $request->session()->get('business.id');
-        $business = Business::findOrFail($businessId);
+        $business = $this->resolveBusiness($request);
 
         if (! $business->hasWooCommerceApiCredentials()) {
             return response()->json([
@@ -29,9 +35,9 @@ class WooCommerceController extends Controller
         }
 
         $page = (int) ($request->input('page', 1));
-        $perPage = (int) ($request->input('per_page', 25));
+        $perPage = min(100, max(1, (int) $request->input('per_page', 25)));
 
-        $result = $this->importService->fetchProducts($business, $page, $perPage);
+        $result = $this->importService->fetchProducts($business, $page, $perPage, ['status' => 'any']);
 
         return response()->json($result);
     }
@@ -41,47 +47,51 @@ class WooCommerceController extends Controller
      */
     public function importProducts(Request $request): JsonResponse
     {
-        $businessId = $request->session()->get('business.id');
-        $business = Business::findOrFail($businessId);
+        @ini_set('memory_limit', '512M');
+        set_time_limit(180);
 
-        if (! $business->hasWooCommerceApiCredentials()) {
-            return response()->json([
-                'success' => false,
-                'message' => __('business.woocommerce_not_configured'),
-            ], 403);
-        }
+        try {
+            $business = $this->resolveBusiness($request);
 
-        $productIds = $request->input('product_ids', []);
-        if (empty($productIds)) {
-            return response()->json([
-                'success' => false,
-                'message' => __('lang_v1.no_products_selected'),
-            ], 422);
-        }
-
-        // First fetch all products to have the full data
-        $allProducts = [];
-        $page = 1;
-        $perPage = 100;
-
-        do {
-            $result = $this->importService->fetchProducts($business, $page, $perPage);
-            if (! $result['success']) {
+            if (! $business->hasWooCommerceApiCredentials()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $result['message'],
+                    'message' => __('business.woocommerce_not_configured'),
+                ], 403);
+            }
+
+            $productIds = $request->input('product_ids', []);
+            if (! is_array($productIds) || $productIds === []) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('lang_v1.no_products_selected'),
                 ], 422);
             }
 
-            $allProducts = array_merge($allProducts, $result['products'] ?? []);
-            $page++;
-        } while ($page <= ($result['pages'] ?? 1));
+            $selectedIds = array_values(array_unique(array_map('intval', $productIds)));
 
-        // Filter to only selected IDs
-        $selectedIds = array_map('intval', $productIds);
+            $fetch = $this->importService->fetchProductsByIds($business, $selectedIds);
+            if (! $fetch['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $fetch['message'],
+                ], 422);
+            }
 
-        $result = $this->importService->importProducts($business, $selectedIds, $allProducts);
+            $result = $this->importService->importProducts(
+                $business,
+                $selectedIds,
+                $fetch['products'] ?? []
+            );
 
-        return response()->json($result);
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            \Log::error('WooCommerce import products: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => __('business.woocommerce_import_server_error'),
+            ], 500);
+        }
     }
 }
