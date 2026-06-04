@@ -183,6 +183,12 @@
                 .prop('disabled', disabled);
         }
 
+        function resetAllWooCommerceBulkLoading() {
+            setProductBulkBtnLoading($('.toggle_woocomerce_sync'), false);
+            setProductBulkBtnLoading($('#bulk_push_woocommerce_btn'), false);
+            setProductBulkActionsDisabled(false);
+        }
+
         $(document).ready( function(){
             product_table = $('#product_table').DataTable({
                 processing: true,
@@ -475,7 +481,8 @@
                         method: method,
                         dataType: "json",
                         url: url,
-                        data:data,
+                        data: data,
+                        timeout: 120000,
                         success: function(result){
                             if (result.success) {
                                 $("input#woocommerce_products_sync").val('');
@@ -488,12 +495,14 @@
                         },
                         error: function(xhr) {
                             var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
+                            if (xhr.status === 503 || xhr.status === 502 || xhr.status === 504) {
+                                msg = '@lang("business.woocommerce_push_server_error")';
+                            }
                             toastr.error(msg);
                         },
                         complete: function() {
                             ladda.stop();
-                            setProductBulkBtnLoading($('.toggle_woocomerce_sync'), false);
-                            setProductBulkActionsDisabled(false);
+                            resetAllWooCommerceBulkLoading();
                         }
                     });
                 });
@@ -560,13 +569,25 @@
                     var fail = 0;
                     var errors = [];
                     var pushUrlBase = "{{ url('products') }}/";
-                    var originalBtnHtml = $btn.html();
+                    var pushFinished = false;
+                    var pushWatchdog = setTimeout(function() {
+                        if (!pushFinished) {
+                            errors.push('@lang("business.woocommerce_push_timeout")');
+                            finishBulkPush();
+                        }
+                    }, Math.min((total * 95000) + 60000, 600000));
 
                     function updateProgress() {
                         $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + (index + 1) + '/' + total);
                     }
 
                     function finishBulkPush() {
+                        if (pushFinished) {
+                            return;
+                        }
+                        pushFinished = true;
+                        clearTimeout(pushWatchdog);
+
                         var msg = @json(__('business.woocommerce_bulk_result'))
                             .replace(':ok', ok)
                             .replace(':fail', fail);
@@ -580,10 +601,8 @@
                         } else {
                             toastr.error(msg);
                         }
+                        resetAllWooCommerceBulkLoading();
                         product_table.ajax.reload();
-                        setProductBulkBtnLoading($btn, false);
-                        setProductBulkActionsDisabled(false);
-                        $btn.html(originalBtnHtml);
                     }
 
                     function pushNext() {

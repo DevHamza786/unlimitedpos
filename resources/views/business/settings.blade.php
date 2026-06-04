@@ -391,6 +391,7 @@
         }
 
         $('#woo_import_selected_btn').click(function() {
+            var $importBtn = $(this);
             var selectedIds = [];
             $('.woo_product_check:checked').each(function() {
                 selectedIds.push($(this).val());
@@ -400,7 +401,15 @@
                 return;
             }
 
-            $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Importing...');
+            var importLabel = $importBtn.data('label');
+            $importBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Importing...');
+
+            function resetImportButton() {
+                var count = $('.woo_product_check:checked').length;
+                $importBtn.prop('disabled', count === 0).html(
+                    '<i class="fa fa-download"></i> ' + importLabel + ' (' + count + ')'
+                );
+            }
 
             $.ajax({
                 method: 'post',
@@ -410,6 +419,7 @@
                     product_ids: selectedIds
                 },
                 dataType: 'json',
+                timeout: 300000,
                 success: function(result) {
                     if (result.success) {
                         swal({ text: result.message, icon: 'success' });
@@ -420,8 +430,13 @@
                 },
                 error: function(xhr) {
                     var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : xhr.statusText;
+                    if (xhr.status === 503 || xhr.status === 502 || xhr.status === 504) {
+                        msg = '@lang("business.woocommerce_push_server_error")';
+                    }
                     swal({ text: msg, icon: 'error' });
-                    closeWooImportModal();
+                },
+                complete: function() {
+                    resetImportButton();
                 }
             });
         });
