@@ -545,31 +545,90 @@
                         return;
                     }
 
+                    var maxPerRun = 5;
+                    if (selected.length > maxPerRun) {
+                        swal(@json(__('business.woocommerce_bulk_max_per_run', ['max' => 5])));
+                        selected = selected.slice(0, maxPerRun);
+                    }
+
                     setProductBulkActionsDisabled(true);
                     setProductBulkBtnLoading($btn, true);
 
-                    $.ajax({
-                        method: 'post',
-                        url: "{{ action([\App\Http\Controllers\ProductController::class, 'postBulkPushProductsToWooCommerce']) }}",
-                        dataType: 'json',
-                        data: { _token: '{{ csrf_token() }}', product_ids: selected },
-                        success: function(result){
-                            if (result.success == 1) {
-                                toastr.success(result.msg);
-                            } else {
-                                toastr.warning(result.msg);
-                            }
-                            product_table.ajax.reload();
-                        },
-                        error: function(xhr){
-                            var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
-                            toastr.error(msg);
-                        },
-                        complete: function() {
-                            setProductBulkBtnLoading($btn, false);
-                            setProductBulkActionsDisabled(false);
+                    var total = selected.length;
+                    var index = 0;
+                    var ok = 0;
+                    var fail = 0;
+                    var errors = [];
+                    var pushUrlBase = "{{ url('products') }}/";
+                    var originalBtnHtml = $btn.html();
+
+                    function updateProgress() {
+                        $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + (index + 1) + '/' + total);
+                    }
+
+                    function finishBulkPush() {
+                        var msg = @json(__('business.woocommerce_bulk_result'))
+                            .replace(':ok', ok)
+                            .replace(':fail', fail);
+                        if (errors.length > 0) {
+                            msg += ' ' + errors.slice(0, 3).join(' | ');
                         }
-                    });
+                        if (fail === 0) {
+                            toastr.success(msg);
+                        } else if (ok > 0) {
+                            toastr.warning(msg);
+                        } else {
+                            toastr.error(msg);
+                        }
+                        product_table.ajax.reload();
+                        setProductBulkBtnLoading($btn, false);
+                        setProductBulkActionsDisabled(false);
+                        $btn.html(originalBtnHtml);
+                    }
+
+                    function pushNext() {
+                        if (index >= total) {
+                            finishBulkPush();
+                            return;
+                        }
+
+                        var productId = selected[index];
+                        updateProgress();
+
+                        $.ajax({
+                            method: 'post',
+                            url: pushUrlBase + productId + '/woocommerce-push',
+                            dataType: 'json',
+                            timeout: 90000,
+                            data: { _token: '{{ csrf_token() }}' },
+                            success: function(result) {
+                                if (result.success == 1) {
+                                    ok++;
+                                } else {
+                                    fail++;
+                                    if (result.msg) {
+                                        errors.push(result.msg);
+                                    }
+                                }
+                            },
+                            error: function(xhr) {
+                                fail++;
+                                var msg = (xhr.responseJSON && xhr.responseJSON.msg) ? xhr.responseJSON.msg : xhr.statusText;
+                                if (xhr.status === 503 || xhr.status === 502 || xhr.status === 504) {
+                                    msg = '@lang("business.woocommerce_push_server_error")';
+                                } else if (xhr.statusText === 'timeout') {
+                                    msg = '@lang("business.woocommerce_push_timeout")';
+                                }
+                                errors.push('ID ' + productId + ': ' + msg);
+                            },
+                            complete: function() {
+                                index++;
+                                setTimeout(pushNext, 1200);
+                            }
+                        });
+                    }
+
+                    pushNext();
                 });
             @endif
         });

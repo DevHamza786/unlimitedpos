@@ -2363,18 +2363,30 @@ class ProductController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+        set_time_limit(90);
 
-        $business_id = (int) $request->session()->get('user.business_id');
-        $business = Business::findOrFail($business_id);
-        $product = Product::where('business_id', $business_id)->findOrFail($id);
+        try {
+            $business_id = (int) $request->session()->get('user.business_id');
+            $business = Business::findOrFail($business_id);
+            $product = Product::where('business_id', $business_id)->findOrFail($id);
 
-        $result = $woo->pushProduct($business, $product);
+            $result = $woo->pushProduct($business, $product);
 
-        return response()->json([
-            'success' => $result['success'] ? 1 : 0,
-            'msg' => $result['message'],
-        ]);
+            return response()->json([
+                'success' => $result['success'] ? 1 : 0,
+                'msg' => $result['message'],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('WooCommerce push product '.$id.': '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => 0,
+                'msg' => __('business.woocommerce_push_server_error'),
+            ], 500);
+        }
     }
 
     public function postBulkPushProductsToWooCommerce(Request $request, WooCommerceProductPushService $woo): JsonResponse
@@ -2383,22 +2395,41 @@ class ProductController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        set_time_limit(300);
-
-        $business_id = (int) $request->session()->get('user.business_id');
-        $business = Business::findOrFail($business_id);
         $ids = $request->input('product_ids', []);
         if (! is_array($ids)) {
             $ids = [];
         }
         $ids = array_values(array_unique(array_map('intval', $ids)));
 
-        $result = $woo->pushProducts($business, $ids);
+        // Legacy bulk endpoint — too heavy for shared hosting; use one-by-one push in the UI.
+        if (count($ids) > 3) {
+            return response()->json([
+                'success' => 0,
+                'msg' => __('business.woocommerce_bulk_use_sequential', ['max' => 3]),
+            ], 422);
+        }
 
-        return response()->json([
-            'success' => $result['success'] ? 1 : 0,
-            'msg' => $result['message'],
-        ]);
+        @ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
+        try {
+            $business_id = (int) $request->session()->get('user.business_id');
+            $business = Business::findOrFail($business_id);
+
+            $result = $woo->pushProducts($business, $ids);
+
+            return response()->json([
+                'success' => $result['success'] ? 1 : 0,
+                'msg' => $result['message'],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('WooCommerce bulk push: '.$e->getMessage());
+
+            return response()->json([
+                'success' => 0,
+                'msg' => __('business.woocommerce_push_server_error'),
+            ], 500);
+        }
     }
 
     /**

@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 
 class WooCommerceProductPushService
 {
-    private const API_TIMEOUT = 90;
+    private const API_TIMEOUT = 60;
 
     public function businessIsConfigured(Business $business): bool
     {
@@ -26,18 +26,20 @@ class WooCommerceProductPushService
      *
      * @return array{success: bool, message: string, woocommerce_id?: int|null}
      */
-    public function pushProduct(Business $business, Product $product): array
+    public function pushProduct(Business $business, Product $product, $http = null): array
     {
         $validation = $this->validateProductForPush($business, $product);
         if ($validation !== null) {
             return $validation;
         }
 
+        $http = $http ?? $this->httpClient($business);
+
         if ($product->type === 'variable') {
-            return $this->pushVariableProduct($business, $product);
+            return $this->pushVariableProduct($business, $product, $http);
         }
 
-        return $this->pushSimpleTypeProduct($business, $product);
+        return $this->pushSimpleTypeProduct($business, $product, $http);
     }
 
     /**
@@ -95,7 +97,7 @@ class WooCommerceProductPushService
                 'type' => $product->type === 'variable' ? 'variable' : 'simple',
             ];
 
-            $foundId = $this->findExistingWooProductId($http, $business, $product, $payload, true);
+            $foundId = $this->findExistingWooProductId($http, $business, $product, $payload, false);
             if (empty($foundId)) {
                 return false;
             }
@@ -122,14 +124,35 @@ class WooCommerceProductPushService
         $fail = 0;
         $errors = [];
 
+        if ($productIds === []) {
+            return [
+                'success' => true,
+                'message' => __('business.woocommerce_bulk_result', ['ok' => 0, 'fail' => 0]),
+            ];
+        }
+
+        $http = $this->httpClient($business);
+
+        $products = Product::where('business_id', $business->id)
+            ->whereIn('id', $productIds)
+            ->with([
+                'variations' => function ($query) {
+                    $query->whereNull('deleted_at')
+                        ->with(['variation_location_details', 'product_variation']);
+                },
+                'product_variations',
+            ])
+            ->get()
+            ->keyBy('id');
+
         foreach ($productIds as $pid) {
-            $product = Product::where('business_id', $business->id)->find($pid);
+            $product = $products->get($pid);
             if ($product === null) {
                 $fail++;
 
                 continue;
             }
-            $r = $this->pushProduct($business, $product);
+            $r = $this->pushProduct($business, $product, $http);
             if ($r['success']) {
                 $ok++;
             } else {
@@ -182,7 +205,7 @@ class WooCommerceProductPushService
      *
      * @return array{success: bool, message: string, woocommerce_id?: int|null}
      */
-    private function pushSimpleTypeProduct(Business $business, Product $product): array
+    private function pushSimpleTypeProduct(Business $business, Product $product, $http): array
     {
         $variation = $product->variations()->whereNull('deleted_at')->orderBy('id')->first();
         if ($variation === null) {
@@ -211,8 +234,6 @@ class WooCommerceProductPushService
         $this->applyImagesToPayload($payload, $product);
 
         try {
-            $http = $this->httpClient($business);
-
             $saved = $this->saveParentProductToWoo($http, $business, $product, $payload);
             if (! $saved['success']) {
                 return ['success' => false, 'message' => $saved['message']];
@@ -237,7 +258,7 @@ class WooCommerceProductPushService
     /**
      * @return array{success: bool, message: string, woocommerce_id?: int|null}
      */
-    private function pushVariableProduct(Business $business, Product $product): array
+    private function pushVariableProduct(Business $business, Product $product, $http): array
     {
         $variations = $this->loadPushableVariations($product);
         if ($variations->isEmpty()) {
@@ -266,8 +287,6 @@ class WooCommerceProductPushService
         $imgUrl = $payload['images'][0]['src'] ?? null;
 
         try {
-            $http = $this->httpClient($business);
-
             $saved = $this->saveParentProductToWoo($http, $business, $product, $payload);
             if (! $saved['success']) {
                 return ['success' => false, 'message' => $saved['message']];
