@@ -75,7 +75,8 @@ class WooCommerceConnectionService
                 ->post($url, [
                     'name' => 'POS API write test',
                     'type' => 'simple',
-                    'status' => 'draft',
+                    'status' => 'publish',
+                    'regular_price' => '0.01',
                 ]);
 
             if ($this->responseIsHtml($response)) {

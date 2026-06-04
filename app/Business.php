@@ -152,6 +152,19 @@ class Business extends Model
     }
 
     /**
+     * Last characters of the saved consumer key (for confirming which key is stored).
+     */
+    public function woocommerceConsumerKeySuffix(): ?string
+    {
+        $key = trim((string) $this->woocommerce_consumer_key);
+        if ($key === '') {
+            return null;
+        }
+
+        return strlen($key) > 8 ? substr($key, -8) : $key;
+    }
+
+    /**
      * User turned integration on in settings AND credentials exist.
      */
     public function isWooCommerceStoreConfigured(): bool

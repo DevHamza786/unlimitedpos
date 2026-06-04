@@ -33,6 +33,11 @@ class WooCommerceProductPushService
             return $validation;
         }
 
+        if (empty($product->woocommerce_product_id)) {
+            $this->tryRepairLinkForProduct($business, $product);
+            $product->refresh();
+        }
+
         $http = $http ?? $this->httpClient($business);
 
         if ($product->type === 'variable') {
@@ -1497,7 +1502,7 @@ class WooCommerceProductPushService
 
         if ((is_array($body) && ($body['code'] ?? '') === 'rest_cannot_create')
             || str_contains($msgLower, 'not allowed to create')) {
-            return (string) __('business.woocommerce_create_denied');
+            return (string) __('business.woocommerce_rest_cannot_create_help');
         }
 
         return substr(strip_tags((string) $msg), 0, 300);
@@ -1550,7 +1555,8 @@ class WooCommerceProductPushService
         $error = $this->parseApiError($response);
         $raw = $this->extractRawApiMessage($response);
 
-        if ($error === (string) __('business.woocommerce_create_denied')) {
+        if ($error === (string) __('business.woocommerce_rest_cannot_create_help')
+            || $error === (string) __('business.woocommerce_create_denied')) {
             if ($raw !== '' && ! str_contains(strtolower($error), strtolower($raw))) {
                 return $error.' ['.$raw.']';
             }

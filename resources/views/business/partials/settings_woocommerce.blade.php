@@ -35,6 +35,12 @@
         </div>
         <div class="col-sm-12">
             <button type="button" class="btn btn-info" id="test_woocommerce_btn">@lang('business.woocommerce_test_connection')</button>
+            @if ($business->hasWooCommerceApiCredentials())
+                <button type="button" class="btn btn-default" id="test_woocommerce_saved_btn">@lang('business.woocommerce_test_saved_keys')</button>
+                @if ($business->woocommerceConsumerKeySuffix())
+                    <p class="help-block text-muted" style="margin-top:8px;">@lang('business.woocommerce_saved_key_hint'): <code>…{{ $business->woocommerceConsumerKeySuffix() }}</code> — compare with your WooCommerce REST key.</p>
+                @endif
+            @endif
         </div>
         @if ($business->hasWooCommerceApiCredentials())
         <div class="col-sm-12"><hr></div>

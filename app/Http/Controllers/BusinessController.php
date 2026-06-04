@@ -691,12 +691,41 @@ class BusinessController extends Controller
         }
 
         $business_id = $request->session()->get('user.business_id');
+        $business = Business::find($business_id);
+
+        if ($request->boolean('test_saved')) {
+            if ($business === null || ! $business->hasWooCommerceApiCredentials()) {
+                return response()->json([
+                    'success' => 0,
+                    'msg' => __('business.woocommerce_no_saved_keys'),
+                ]);
+            }
+
+            $result = $wooCommerce->test(
+                (string) $business->woocommerce_store_url,
+                (string) $business->woocommerce_consumer_key,
+                (string) $business->woocommerce_consumer_secret
+            );
+
+            $msg = $result['success']
+                ? __('business.woocommerce_test_saved_ok')
+                : __('business.woocommerce_test_saved_fail').': '.$result['message'];
+
+            if ($result['success'] && ($suffix = $business->woocommerceConsumerKeySuffix())) {
+                $msg .= ' ('.__('business.woocommerce_saved_key_hint').': …'.$suffix.')';
+            }
+
+            return response()->json([
+                'success' => $result['success'] ? 1 : 0,
+                'msg' => $msg,
+            ]);
+        }
+
         $url = trim((string) $request->input('woocommerce_store_url', ''));
         $key = trim((string) $request->input('woocommerce_consumer_key', ''));
         $secret = trim((string) $request->input('woocommerce_consumer_secret', ''));
 
         if ($key === '' || $secret === '' || $url === '') {
-            $business = Business::find($business_id);
             if ($business !== null) {
                 if ($url === '' && ! empty($business->woocommerce_store_url)) {
                     $url = $business->woocommerce_store_url;
@@ -712,9 +741,14 @@ class BusinessController extends Controller
 
         $result = $wooCommerce->test($url, $key, $secret);
 
+        $msg = $result['message'];
+        if ($result['success'] && ($request->filled('woocommerce_consumer_key') || $request->filled('woocommerce_consumer_secret'))) {
+            $msg .= ' '.__('business.woocommerce_save_after_test');
+        }
+
         return response()->json([
             'success' => $result['success'] ? 1 : 0,
-            'msg' => $result['message'],
+            'msg' => $msg,
         ]);
     }
 

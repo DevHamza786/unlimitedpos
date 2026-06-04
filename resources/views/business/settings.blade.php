@@ -252,6 +252,36 @@
             });
         });
 
+        $('#test_woocommerce_saved_btn').click(function() {
+            var $btn = $(this);
+            if ($btn.prop('disabled')) {
+                return;
+            }
+            if (!$btn.data('orig-html')) {
+                $btn.data('orig-html', $btn.html());
+            }
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+            $.ajax({
+                method: 'post',
+                data: { _token: '{{ csrf_token() }}', test_saved: 1 },
+                url: "{{ action([\App\Http\Controllers\BusinessController::class, 'postTestWooCommerce']) }}",
+                dataType: 'json',
+                success: function(result) {
+                    swal({
+                        text: result.msg,
+                        icon: (result.success == 1 || result.success === true) ? 'success' : 'error'
+                    });
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : xhr.statusText;
+                    swal({ text: msg, icon: 'error' });
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html($btn.data('orig-html'));
+                }
+            });
+        });
+
         $('#test_square_btn').click(function() {
             var data = {
                 _token: '{{ csrf_token() }}',
