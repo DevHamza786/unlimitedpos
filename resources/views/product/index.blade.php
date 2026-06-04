@@ -183,9 +183,24 @@
                 .prop('disabled', disabled);
         }
 
+        function resetBulkPushWooCommerceButton() {
+            var $btn = $('#bulk_push_woocommerce_btn');
+            if (!$btn.length) {
+                return;
+            }
+            var defaultHtml = $btn.attr('data-default-html');
+            if (!defaultHtml) {
+                defaultHtml = $btn.data('orig-html');
+            }
+            $btn.prop('disabled', false).removeData('orig-html');
+            if (defaultHtml) {
+                $btn.html(defaultHtml);
+            }
+        }
+
         function resetAllWooCommerceBulkLoading() {
             setProductBulkBtnLoading($('.toggle_woocomerce_sync'), false);
-            setProductBulkBtnLoading($('#bulk_push_woocommerce_btn'), false);
+            resetBulkPushWooCommerceButton();
             setProductBulkActionsDisabled(false);
         }
 
@@ -548,6 +563,10 @@
 
                 $(document).on('click', '#bulk_push_woocommerce_btn', function(){
                     var $btn = $(this);
+                    if ($btn.data('bulk-push-running')) {
+                        return;
+                    }
+
                     var selected = getSelectedRows();
                     if (selected.length === 0) {
                         swal('@lang("lang_v1.no_row_selected")');
@@ -560,8 +579,11 @@
                         selected = selected.slice(0, maxPerRun);
                     }
 
+                    var defaultBtnHtml = $btn.attr('data-default-html') || $btn.html();
+                    $btn.data('orig-html', defaultBtnHtml);
+
                     setProductBulkActionsDisabled(true);
-                    setProductBulkBtnLoading($btn, true);
+                    $btn.data('bulk-push-running', true).prop('disabled', true);
 
                     var total = selected.length;
                     var index = 0;
@@ -587,6 +609,9 @@
                         }
                         pushFinished = true;
                         clearTimeout(pushWatchdog);
+                        $btn.removeData('bulk-push-running');
+                        resetBulkPushWooCommerceButton();
+                        setProductBulkActionsDisabled(false);
 
                         var msg = @json(__('business.woocommerce_bulk_result'))
                             .replace(':ok', ok)
@@ -601,8 +626,10 @@
                         } else {
                             toastr.error(msg);
                         }
-                        resetAllWooCommerceBulkLoading();
-                        product_table.ajax.reload();
+
+                        if (typeof product_table !== 'undefined' && product_table) {
+                            product_table.ajax.reload(null, false);
+                        }
                     }
 
                     function pushNext() {
@@ -621,7 +648,7 @@
                             timeout: 90000,
                             data: { _token: '{{ csrf_token() }}' },
                             success: function(result) {
-                                if (result.success == 1) {
+                                if (result.success == 1 || result.success === true) {
                                     ok++;
                                 } else {
                                     fail++;
@@ -642,6 +669,10 @@
                             },
                             complete: function() {
                                 index++;
+                                if (index >= total) {
+                                    finishBulkPush();
+                                    return;
+                                }
                                 setTimeout(pushNext, 1200);
                             }
                         });

@@ -71,7 +71,8 @@
                         @lang('lang_v1.woocommerce_sync')
                     </button>
                     &nbsp;
-                    <button type="button" class="btn btn-xs btn-primary" id="bulk_push_woocommerce_btn">
+                    <button type="button" class="btn btn-xs btn-primary" id="bulk_push_woocommerce_btn"
+                        data-default-html='<i class="fab fa-wordpress"></i> @lang('business.woocommerce_push_selected')'>
                         <i class="fab fa-wordpress"></i> @lang('business.woocommerce_push_selected')
                     </button>
                 @endif
