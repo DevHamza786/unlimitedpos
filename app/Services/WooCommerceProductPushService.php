@@ -52,7 +52,10 @@ class WooCommerceProductPushService
         return $this->tryLinkToExistingWooProduct($business, $product);
     }
 
-    public function repairMissingLinks(Business $business): array
+    /**
+     * @param  callable(int, int, Product): void|null  $onProgress  (current, total, product)
+     */
+    public function repairMissingLinks(Business $business, ?int $limit = null, ?callable $onProgress = null): array
     {
         if (! $this->businessIsConfigured($business)) {
             return ['linked' => 0, 'not_found' => 0, 'message' => __('business.woocommerce_not_configured')];
@@ -61,16 +64,28 @@ class WooCommerceProductPushService
         $linked = 0;
         $notFound = 0;
 
-        $products = Product::where('business_id', $business->id)
-            ->where(function ($query) {
-                $query->whereNull('woocommerce_product_id')
+        $query = Product::where('business_id', $business->id)
+            ->where(function ($q) {
+                $q->whereNull('woocommerce_product_id')
                     ->orWhere('woocommerce_product_id', 0);
             })
             ->whereIn('type', ['single', 'variable', 'combo'])
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
 
-        foreach ($products as $product) {
+        $total = (clone $query)->count();
+
+        if ($limit !== null && $limit > 0) {
+            $query->limit($limit);
+        }
+
+        $products = $query->get();
+        $batchTotal = $products->count();
+
+        foreach ($products as $index => $product) {
+            if ($onProgress !== null) {
+                $onProgress($index + 1, $batchTotal, $product);
+            }
+
             if ($this->tryLinkToExistingWooProduct($business, $product)) {
                 $linked++;
             } else {
@@ -78,12 +93,19 @@ class WooCommerceProductPushService
             }
         }
 
+        $remaining = max(0, $total - $batchTotal);
+
         return [
             'linked' => $linked,
             'not_found' => $notFound,
+            'total' => $total,
+            'processed' => $batchTotal,
+            'remaining' => $remaining,
             'message' => __('business.woocommerce_repair_links_result', [
                 'linked' => $linked,
                 'not_found' => $notFound,
+                'processed' => $batchTotal,
+                'remaining' => $remaining,
             ]),
         ];
     }

@@ -119,7 +119,7 @@ return [
     'woocommerce_connection_failed' => 'Could not reach WooCommerce API',
     'woocommerce_read_only_keys' => 'API keys are read-only or the linked WordPress user cannot create products. In WooCommerce → Settings → Advanced → REST API, create a new key with Read/Write permissions for an Administrator or Shop Manager account, then update the keys here.',
     'woocommerce_create_denied' => 'Could not create this product on WooCommerce (API said create is not allowed, or the product already exists but could not be matched). Run on the server: php artisan pos:woocommerceRepairLinks — then push again. To debug one product: php artisan pos:woocommerceDiagnosePush {id} --push. Save WooCommerce keys in Business Settings after changing them (Test connection alone does not save keys).',
-    'woocommerce_repair_links_result' => 'Linked :linked product(s) to WooCommerce. :not_found product(s) had no match on the store.',
+    'woocommerce_repair_links_result' => 'Processed :processed product(s): linked :linked, no match :not_found. Unlinked remaining in POS: :remaining (run the command again to continue).',
     'woocommerce_write_check_failed' => 'Could not verify write access to WooCommerce',
     'woocommerce_url_required' => 'Store URL is required.',
     'woocommerce_keys_required' => 'Consumer key and secret are required.',
