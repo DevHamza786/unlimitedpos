@@ -47,6 +47,11 @@ class WooCommerceProductPushService
      *
      * @return array{linked: int, not_found: int, message: string}
      */
+    public function tryRepairLinkForProduct(Business $business, Product $product): bool
+    {
+        return $this->tryLinkToExistingWooProduct($business, $product);
+    }
+
     public function repairMissingLinks(Business $business): array
     {
         if (! $this->businessIsConfigured($business)) {
@@ -364,6 +369,9 @@ class WooCommerceProductPushService
 
         if (empty($existingId)) {
             $foundId = $this->findExistingWooProductId($http, $business, $product, $payload, false);
+            if (empty($foundId)) {
+                $foundId = $this->findExistingWooProductId($http, $business, $product, $payload, true);
+            }
             if ($foundId) {
                 $existingId = $foundId;
                 $relinked = true;
@@ -493,6 +501,27 @@ class WooCommerceProductPushService
             if ($foundId) {
                 return $foundId;
             }
+
+            $foundId = $this->findWooProductIdByVariationSku($http, $business, $sku);
+            if ($foundId) {
+                return $foundId;
+            }
+        }
+
+        foreach ($this->collectSkusForWooLookup($product, $payload) as $extraSku) {
+            if ($extraSku === '' || $extraSku === $sku) {
+                continue;
+            }
+
+            $foundId = $this->findWooProductIdBySku($http, $business, $extraSku);
+            if ($foundId) {
+                return $foundId;
+            }
+
+            $foundId = $this->findWooProductIdByVariationSku($http, $business, $extraSku);
+            if ($foundId) {
+                return $foundId;
+            }
         }
 
         foreach ($this->buildWooSearchTerms($name, $sku) as $term) {
@@ -562,6 +591,90 @@ class WooCommerceProductPushService
         }
 
         return (int) $items[0]['id'];
+    }
+
+    /**
+     * Variable products often have an empty parent SKU on WooCommerce; match via variation SKU.
+     */
+    private function findWooProductIdByVariationSku($http, Business $business, string $sku): ?int
+    {
+        $sku = trim($sku);
+        if ($sku === '') {
+            return null;
+        }
+
+        $response = $http->get($this->apiBase($business).'/products', [
+            'search' => $sku,
+            'type' => 'variable',
+            'per_page' => 50,
+            'status' => 'any',
+        ]);
+
+        if (! $response->successful() || $this->responseIsHtml($response)) {
+            return null;
+        }
+
+        $items = $response->json();
+        if (! is_array($items)) {
+            return null;
+        }
+
+        foreach ($items as $item) {
+            if (! is_array($item) || empty($item['id']) || ($item['type'] ?? '') !== 'variable') {
+                continue;
+            }
+
+            $parentId = (int) $item['id'];
+            $varResponse = $http->get($this->apiBase($business).'/products/'.$parentId.'/variations', [
+                'sku' => $sku,
+                'per_page' => 1,
+            ]);
+
+            if ($varResponse->successful() && ! $this->responseIsHtml($varResponse)) {
+                $vars = $varResponse->json();
+                if (is_array($vars) && ! empty($vars[0]['id'])) {
+                    return $parentId;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function collectSkusForWooLookup(Product $product, array $payload): array
+    {
+        $skus = [];
+        $payloadSku = trim((string) ($payload['sku'] ?? ''));
+        if ($payloadSku !== '') {
+            $skus[] = $payloadSku;
+        }
+
+        $parentSku = trim((string) $product->sku);
+        if ($parentSku !== '') {
+            $skus[] = $parentSku;
+        }
+
+        if ($product->type === 'variable') {
+            foreach ($this->loadPushableVariations($product) as $variation) {
+                $sub = trim((string) ($variation->sub_sku ?: $product->sku));
+                if ($sub !== '') {
+                    $skus[] = $sub;
+                }
+            }
+        } else {
+            $variation = $product->variations()->whereNull('deleted_at')->orderBy('id')->first();
+            if ($variation !== null) {
+                $sub = trim((string) ($variation->sub_sku ?: $product->sku));
+                if ($sub !== '') {
+                    $skus[] = $sub;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($skus)));
     }
 
     private function findWooProductIdBySearch($http, Business $business, string $term, string $posName = '', string $sku = ''): ?int
@@ -777,9 +890,8 @@ class WooCommerceProductPushService
         $message = strtolower(is_array($body) && ! empty($body['message']) ? (string) $body['message'] : (string) $response->body());
         $code = is_array($body) && ! empty($body['code']) ? (string) $body['code'] : '';
 
-        return str_contains($message, 'not allowed to create')
-            || str_contains($message, 'cannot create')
-            || $code === 'rest_cannot_create';
+        return $code === 'rest_cannot_create'
+            || str_contains($message, 'not allowed to create');
     }
 
     private function isInvalidIdError($response): bool
@@ -1361,13 +1473,37 @@ class WooCommerceProductPushService
         $msg = is_array($body) && ! empty($body['message']) ? $body['message'] : $response->body();
         $msgLower = strtolower((string) $msg);
 
-        if (str_contains($msgLower, 'not allowed to create')
-            || str_contains($msgLower, 'cannot create')
-            || (is_array($body) && ($body['code'] ?? '') === 'rest_cannot_create')) {
+        if ((is_array($body) && ($body['code'] ?? '') === 'rest_cannot_create')
+            || str_contains($msgLower, 'not allowed to create')) {
             return (string) __('business.woocommerce_create_denied');
         }
 
         return substr(strip_tags((string) $msg), 0, 300);
+    }
+
+    private function extractRawApiMessage($response): string
+    {
+        if ($this->responseIsHtml($response)) {
+            return '';
+        }
+
+        $body = $response->json();
+        if (! is_array($body)) {
+            return substr(strip_tags((string) $response->body()), 0, 300);
+        }
+
+        $msg = trim((string) ($body['message'] ?? ''));
+        $code = trim((string) ($body['code'] ?? ''));
+
+        if ($msg === '' && $code === '') {
+            return '';
+        }
+
+        if ($code !== '' && $msg !== '') {
+            return $code.': '.$msg;
+        }
+
+        return $code !== '' ? $code : $msg;
     }
 
     /**
@@ -1390,8 +1526,17 @@ class WooCommerceProductPushService
     private function apiFailureMessage($response): string
     {
         $error = $this->parseApiError($response);
-        if ($error === (string) __('business.woocommerce_create_denied')
-            || $error === (string) __('business.woocommerce_api_html_response')) {
+        $raw = $this->extractRawApiMessage($response);
+
+        if ($error === (string) __('business.woocommerce_create_denied')) {
+            if ($raw !== '' && ! str_contains(strtolower($error), strtolower($raw))) {
+                return $error.' ['.$raw.']';
+            }
+
+            return $error;
+        }
+
+        if ($error === (string) __('business.woocommerce_api_html_response')) {
             return $error;
         }
 

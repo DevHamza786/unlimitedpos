@@ -122,9 +122,8 @@ class WooCommerceConnectionService
         $message = strtolower(is_array($body) && ! empty($body['message']) ? (string) $body['message'] : (string) $response->body());
         $code = is_array($body) && ! empty($body['code']) ? (string) $body['code'] : '';
 
-        return str_contains($message, 'not allowed to create')
-            || str_contains($message, 'cannot create')
-            || $code === 'rest_cannot_create';
+        return $code === 'rest_cannot_create'
+            || str_contains($message, 'not allowed to create');
     }
 
     private function responseIsHtml($response): bool
