@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Business;
+use App\BusinessLocation;
 use App\Product;
+use App\Utils\ProductUtil;
 use App\Variation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -35,7 +37,7 @@ class WooCommerceProductPushService
             return $this->pushVariableProduct($business, $product);
         }
 
-        return $this->pushSingleProduct($business, $product);
+        return $this->pushSimpleTypeProduct($business, $product);
     }
 
     /**
@@ -57,7 +59,7 @@ class WooCommerceProductPushService
                 $query->whereNull('woocommerce_product_id')
                     ->orWhere('woocommerce_product_id', 0);
             })
-            ->whereIn('type', ['single', 'variable'])
+            ->whereIn('type', ['single', 'variable', 'combo'])
             ->orderBy('id')
             ->get();
 
@@ -164,11 +166,7 @@ class WooCommerceProductPushService
             return ['success' => false, 'message' => __('business.woocommerce_sync_disabled_for_product')];
         }
 
-        if ($product->type === 'combo') {
-            return ['success' => false, 'message' => __('business.woocommerce_only_combo_type')];
-        }
-
-        if (! in_array($product->type, ['single', 'variable'], true)) {
+        if (! in_array($product->type, ['single', 'variable', 'combo'], true)) {
             return ['success' => false, 'message' => __('business.woocommerce_push_type_not_supported')];
         }
 
@@ -180,16 +178,18 @@ class WooCommerceProductPushService
     }
 
     /**
+     * Push a single or combo product to WooCommerce as a simple product.
+     *
      * @return array{success: bool, message: string, woocommerce_id?: int|null}
      */
-    private function pushSingleProduct(Business $business, Product $product): array
+    private function pushSimpleTypeProduct(Business $business, Product $product): array
     {
         $variation = $product->variations()->whereNull('deleted_at')->orderBy('id')->first();
         if ($variation === null) {
             return ['success' => false, 'message' => __('business.woocommerce_no_variation')];
         }
 
-        $qty = (float) $variation->variation_location_details()->sum('qty_available');
+        $qty = $this->resolveProductStockQuantity($business, $product, $variation);
         $price = (float) $variation->sell_price_inc_tax;
         $sku = trim((string) ($variation->sub_sku ?: $product->sku)) ?: 'sku-'.$product->id;
 
@@ -198,26 +198,17 @@ class WooCommerceProductPushService
             'type' => 'simple',
             'sku' => $sku,
             'regular_price' => number_format($price, 2, '.', ''),
-            'manage_stock' => (bool) $product->enable_stock,
             'status' => 'publish',
         ];
 
-        if ($product->enable_stock) {
-            $payload['stock_quantity'] = max(0, (int) round($qty));
-            $payload['stock_status'] = $payload['stock_quantity'] > 0 ? 'instock' : 'outofstock';
-        } else {
-            $payload['stock_status'] = 'instock';
-        }
+        $this->applyStockToPayload($payload, $qty);
 
         $desc = trim((string) ($product->product_description ?? ''));
         if ($desc !== '') {
             $payload['description'] = $desc;
         }
 
-        $imgUrl = $this->publicImageUrl($product);
-        if ($imgUrl !== null) {
-            $payload['images'] = [['src' => $imgUrl]];
-        }
+        $this->applyImagesToPayload($payload, $product);
 
         try {
             $http = $this->httpClient($business);
@@ -271,10 +262,8 @@ class WooCommerceProductPushService
             $payload['description'] = $desc;
         }
 
-        $imgUrl = $this->publicImageUrl($product);
-        if ($imgUrl !== null) {
-            $payload['images'] = [['src' => $imgUrl]];
-        }
+        $this->applyImagesToPayload($payload, $product);
+        $imgUrl = $payload['images'][0]['src'] ?? null;
 
         try {
             $http = $this->httpClient($business);
@@ -287,6 +276,13 @@ class WooCommerceProductPushService
             $wooProductId = $saved['woocommerce_id'];
             if (empty($wooProductId)) {
                 return ['success' => false, 'message' => __('business.woocommerce_missing_product_id')];
+            }
+
+            // Ensure parent image is set on update (variable parent PUT may omit images otherwise).
+            if ($imgUrl !== null && ! $saved['created']) {
+                $http->put($this->apiBase($business).'/products/'.$wooProductId, [
+                    'images' => [['src' => $imgUrl]],
+                ]);
             }
 
             $synced = 0;
@@ -798,7 +794,7 @@ class WooCommerceProductPushService
         $updateVariations = [];
 
         foreach ($variations as $variation) {
-            $payload = $this->buildVariationPushPayload($product, $variation, $parentAttributes, $dimensionName);
+            $payload = $this->buildVariationPushPayload($business, $product, $variation, $parentAttributes, $dimensionName);
             $existingId = $this->resolveExistingWooVariationId($variation, $payload, $lookup);
 
             if ($existingId) {
@@ -963,28 +959,23 @@ class WooCommerceProductPushService
      * @return array<string, mixed>
      */
     private function buildVariationPushPayload(
+        Business $business,
         Product $product,
         Variation $variation,
         array $parentAttributes,
         string $dimensionName
     ): array {
-        $qty = (float) $variation->variation_location_details()->sum('qty_available');
+        $qty = $this->resolveProductStockQuantity($business, $product, $variation);
         $price = (float) $variation->sell_price_inc_tax;
         $sku = $this->resolveVariationSkuForPush($product, $variation);
 
         $payload = [
             'sku' => $sku,
             'regular_price' => number_format($price, 2, '.', ''),
-            'manage_stock' => (bool) $product->enable_stock,
             'attributes' => $this->buildWooVariationAttributes($parentAttributes, $dimensionName, (string) $variation->name),
         ];
 
-        if ($product->enable_stock) {
-            $payload['stock_quantity'] = max(0, (int) round($qty));
-            $payload['stock_status'] = $payload['stock_quantity'] > 0 ? 'instock' : 'outofstock';
-        } else {
-            $payload['stock_status'] = 'instock';
-        }
+        $this->applyStockToPayload($payload, $qty);
 
         return $payload;
     }
@@ -1015,23 +1006,17 @@ class WooCommerceProductPushService
         string $dimensionName,
         array $parentAttributes
     ): ?string {
-        $qty = (float) $variation->variation_location_details()->sum('qty_available');
+        $qty = $this->resolveProductStockQuantity($business, $product, $variation);
         $price = (float) $variation->sell_price_inc_tax;
         $sku = $this->resolveVariationSkuForPush($product, $variation);
 
         $payload = [
             'sku' => $sku,
             'regular_price' => number_format($price, 2, '.', ''),
-            'manage_stock' => (bool) $product->enable_stock,
             'attributes' => $this->buildWooVariationAttributes($parentAttributes, $dimensionName, (string) $variation->name),
         ];
 
-        if ($product->enable_stock) {
-            $payload['stock_quantity'] = max(0, (int) round($qty));
-            $payload['stock_status'] = $payload['stock_quantity'] > 0 ? 'instock' : 'outofstock';
-        } else {
-            $payload['stock_status'] = 'instock';
-        }
+        $this->applyStockToPayload($payload, $qty);
 
         $existingWooVarId = $variation->woocommerce_variation_id ? (int) $variation->woocommerce_variation_id : null;
         $base = $this->apiBase($business).'/products/'.$wooProductId.'/variations';
@@ -1414,16 +1399,89 @@ class WooCommerceProductPushService
         if (empty($product->image)) {
             return null;
         }
-        $url = $product->image_url;
+
+        if (filter_var($product->image, FILTER_VALIDATE_URL)) {
+            return (string) $product->image;
+        }
+
+        $baseUrl = rtrim(
+            (string) (config('constants.woocommerce_public_app_url') ?: config('app.url')),
+            '/'
+        );
+        if ($baseUrl === '') {
+            return null;
+        }
+
+        $url = $baseUrl.'/uploads/img/'.rawurlencode($product->image);
         $host = parse_url($url, PHP_URL_HOST);
         if (! $host) {
             return null;
         }
+
         $host = strtolower($host);
         if (in_array($host, ['127.0.0.1', 'localhost'], true)) {
             return null;
         }
 
         return $url;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function applyStockToPayload(array &$payload, int $qty): void
+    {
+        $payload['manage_stock'] = true;
+        $payload['stock_quantity'] = max(0, $qty);
+        $payload['stock_status'] = $payload['stock_quantity'] > 0 ? 'instock' : 'outofstock';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function applyImagesToPayload(array &$payload, Product $product): void
+    {
+        $imgUrl = $this->publicImageUrl($product);
+        if ($imgUrl !== null) {
+            $payload['images'] = [['src' => $imgUrl]];
+        }
+    }
+
+    private function resolveProductStockQuantity(Business $business, Product $product, Variation $variation): int
+    {
+        if ($product->type === 'combo') {
+            return $this->resolveComboStockQuantity($business, $variation);
+        }
+
+        return max(0, (int) round((float) $variation->variation_location_details()->sum('qty_available')));
+    }
+
+    private function resolveComboStockQuantity(Business $business, Variation $variation): int
+    {
+        $comboVariations = $variation->combo_variations;
+        if (! is_array($comboVariations) || $comboVariations === []) {
+            return max(0, (int) round((float) $variation->variation_location_details()->sum('qty_available')));
+        }
+
+        /** @var ProductUtil $productUtil */
+        $productUtil = app(ProductUtil::class);
+        $locationIds = BusinessLocation::where('business_id', $business->id)
+            ->where('is_active', 1)
+            ->pluck('id');
+
+        if ($locationIds->isEmpty()) {
+            $locationIds = $variation->variation_location_details()->pluck('location_id')->unique();
+        }
+
+        $total = 0;
+        foreach ($locationIds as $locationId) {
+            $total += (int) $productUtil->calculateComboQuantity((int) $locationId, $comboVariations);
+        }
+
+        if ($total > 0) {
+            return $total;
+        }
+
+        return max(0, (int) round((float) $variation->variation_location_details()->sum('qty_available')));
     }
 }

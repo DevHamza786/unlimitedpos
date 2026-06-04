@@ -253,7 +253,7 @@ class ProductController extends Controller
                             '<li><a href="'.$row->media->first()->display_url.'" download="'.$row->media->first()->display_name.'"><i class="fas fa-download"></i> '.__('lang_v1.product_brochure').'</a></li>';
                         }
 
-                        if ($show_woocommerce_features && auth()->user()->can('product.update') && in_array($row->type, ['single', 'variable'], true) && (int) $row->not_for_selling === 0) {
+                        if ($show_woocommerce_features && auth()->user()->can('product.update') && in_array($row->type, ['single', 'variable', 'combo'], true) && (int) $row->not_for_selling === 0) {
                             $html .= '<li class="divider"></li>';
                             $html .= '<li><a href="#" class="push-woocommerce-product" data-product-id="'.$row->id.'"><i class="fab fa-wordpress"></i> '.__('business.woocommerce_push_to_store').'</a></li>';
                         }

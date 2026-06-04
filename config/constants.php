@@ -83,4 +83,7 @@ return [
 
     /** Verify SSL when calling WooCommerce REST API (disable only for local dev with bad certs). */
     'woocommerce_verify_ssl' => env('WOOCOMMERCE_VERIFY_SSL', true),
+
+    /** Public POS URL WooCommerce uses to fetch product images (defaults to APP_URL). */
+    'woocommerce_public_app_url' => env('WOOCOMMERCE_PUBLIC_APP_URL'),
 ];
